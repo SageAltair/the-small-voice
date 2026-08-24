@@ -206,6 +206,12 @@ def update_item(item_type: str, item_id: int, changes: dict = Body(...), db: Ses
         changes.pop("hashed_password", None)
     if item_type == "stories" and changes.get("published") is True and not item.published:
         item.published_at = datetime.utcnow()
+    # Saving a contributor's resource or topic in the admin workspace is its
+    # approval action. The public endpoints continue to hide unapproved items.
+    if item_type == "resources":
+        changes["published"] = True
+    if item_type == "tags":
+        changes["approved"] = True
     for field, value in changes.items():
         if hasattr(item, field):
             setattr(item, field, value)

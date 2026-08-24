@@ -26,12 +26,6 @@ def create_tag(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=403,
-            detail="Admin access required",
-        )
-
     existing_tag = db.execute(
         select(Tag).where(
             Tag.slug == tag_data.slug,
@@ -47,6 +41,8 @@ def create_tag(
     tag = Tag(
         name=tag_data.name,
         slug=tag_data.slug,
+        owner_id=current_user.id,
+        approved=current_user.role == "admin",
     )
 
     db.add(tag)
@@ -64,10 +60,35 @@ def get_tags(
     db: Session = Depends(get_db),
 ):
     result = db.execute(
-        select(Tag).order_by(Tag.name),
+        select(Tag).where(Tag.approved.is_(True)).order_by(Tag.name),
     )
 
     return result.scalars().all()
+
+
+@router.put("/{tag_id}", response_model=TagResponse)
+def update_tag(tag_id: int, data: TagCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    tag = db.get(Tag, tag_id)
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    if current_user.role != "admin" and tag.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You cannot update this tag")
+    tag.name, tag.slug = data.name, data.slug
+    if current_user.role != "admin":
+        tag.approved = False
+    db.commit(); db.refresh(tag)
+    return tag
+
+
+@router.delete("/{tag_id}")
+def delete_tag(tag_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    tag = db.get(Tag, tag_id)
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    if current_user.role != "admin" and tag.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You cannot delete this tag")
+    db.delete(tag); db.commit()
+    return {"message": "Tag deleted"}
 
 
 @router.get(

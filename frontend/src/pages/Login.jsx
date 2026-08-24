@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, BookOpen, LockKeyhole, UserRound } from "lucide-react";
 import { login } from "../services/api";
 
 export default function Login() {
@@ -35,7 +36,7 @@ export default function Login() {
       if (user.role === "admin") {
         navigate("/admin");
       } else {
-        navigate("/");
+        navigate("/dashboard");
       }
     } catch (err) {
       setError(err.message);
@@ -45,46 +46,32 @@ export default function Login() {
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-card">
-
-        <div className="auth-brand">
-          <div className="auth-mark">TSV</div>
+    <main className="auth-shell">
+      <section className="auth-card" aria-labelledby="login-title">
+        <Link className="auth-brand" to="/">
+          <span className="auth-mark"><BookOpen size={20} /></span>
           <span>The Small Voice</span>
-        </div>
+        </Link>
 
         <p className="eyebrow">WELCOME BACK</p>
 
-        <h1>Sign in</h1>
+        <h1 id="login-title">Welcome back.</h1>
 
         <p className="auth-description">
           Continue your journey from stories to
           learning, growth, community, and mission.
         </p>
 
-        <form onSubmit={handleSubmit}>
+        <form className="auth-form" onSubmit={handleSubmit}>
 
           <label>
             Username
-            <input
-              name="username"
-              value={form.username}
-              onChange={change}
-              autoComplete="username"
-              required
-            />
+            <span className="auth-input"><UserRound size={17} /><input name="username" value={form.username} onChange={change} autoComplete="username" placeholder="Your username" required /></span>
           </label>
 
           <label>
             Password
-            <input
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={change}
-              autoComplete="current-password"
-              required
-            />
+            <span className="auth-input"><LockKeyhole size={17} /><input name="password" type="password" value={form.password} onChange={change} autoComplete="current-password" placeholder="Your password" required /></span>
           </label>
 
           {error && (
@@ -98,7 +85,7 @@ export default function Login() {
             type="submit"
             disabled={busy}
           >
-            {busy ? "Signing in..." : "Sign in"}
+            {busy ? "Signing in..." : <>Sign in <ArrowRight size={16} /></>}
           </button>
 
         </form>

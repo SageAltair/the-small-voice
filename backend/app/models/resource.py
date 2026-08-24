@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -56,3 +56,5 @@ class Resource(Base):
         default=list,
         nullable=False,
     )
+
+    owner_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)

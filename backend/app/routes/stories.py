@@ -65,6 +65,7 @@ def create_story(
     author: str = Form(...),
     category: str = Form(...),
     published: bool = Form(False),
+    submit_for_review: bool = Form(False),
     image_url: str | None = Form(None),
     image: UploadFile | None = File(None),
     db: Session = Depends(get_db),
@@ -79,8 +80,13 @@ def create_story(
             detail="You cannot create stories",
         )
 
-    if current_user.role == "admin":
+    if current_user.role == "admin" and not submit_for_review:
         published = True
+    else:
+        # Authors submit work for review; they cannot publish directly or
+        # impersonate another contributor.
+        published = False
+        author = current_user.username
 
     if image and image.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
@@ -117,6 +123,7 @@ def create_story(
         category=category,
         published=published,
         published_at=datetime.utcnow() if published else None,
+        owner_id=current_user.id,
     )
 
     db.add(story)
@@ -226,10 +233,7 @@ def update_story(
         db,
     )
 
-    if (
-        current_user.role != "admin"
-        and story.author != current_user.username
-    ):
+    if current_user.role != "admin" and story.owner_id != current_user.id:
         raise HTTPException(
             status_code=403,
             detail="You cannot update this story",
@@ -238,6 +242,14 @@ def update_story(
     update_data = story_data.model_dump(
         exclude_unset=True,
     )
+
+    if current_user.role != "admin":
+        update_data.pop("author", None)
+        update_data.pop("published", None)
+        update_data.pop("featured", None)
+        # Any author edit requires the administrator to approve it again.
+        story.published = False
+        story.published_at = None
 
     if update_data.get("published") is True and not story.published:
         story.published_at = datetime.utcnow()
@@ -268,10 +280,7 @@ def delete_story(
         db,
     )
 
-    if (
-        current_user.role != "admin"
-        and story.author != current_user.username
-    ):
+    if current_user.role != "admin" and story.owner_id != current_user.id:
         raise HTTPException(
             status_code=403,
             detail="You cannot delete this story",
@@ -300,10 +309,7 @@ def add_tags_to_story(
         db,
     )
 
-    if (
-        current_user.role != "admin"
-        and story.author != current_user.username
-    ):
+    if current_user.role != "admin" and story.owner_id != current_user.id:
         raise HTTPException(
             status_code=403,
             detail="You cannot modify this story",

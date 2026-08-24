@@ -105,6 +105,10 @@ export async function getCurrentUser() {
   });
 }
 
+export function getAuthorDashboard() {
+  return request("/users/dashboard", { headers: authHeaders() });
+}
+
 
 export function logout() {
   localStorage.removeItem("access_token");
@@ -173,9 +177,20 @@ export async function getResources() {
   return request("/resources/");
 }
 
+export function createResource(data) { return request("/resources/", { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); }
+export function createUploadedResource(file, resource) { const body = new FormData(); body.append("title", resource.title); body.append("description", resource.description); body.append("resource_type", resource.resource_type); body.append("resource", file); return request("/resources/upload", { method: "POST", headers: authHeaders(), body }); }
+export function updateResource(id, data) { return request(`/resources/manage/${id}`, { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); }
+export function deleteResource(id) { return request(`/resources/manage/${id}`, { method: "DELETE", headers: authHeaders() }); }
+export function createTag(data) { return request("/tags/", { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); }
+export function updateTag(id, data) { return request(`/tags/${id}`, { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); }
+export function deleteTag(id) { return request(`/tags/${id}`, { method: "DELETE", headers: authHeaders() }); }
+
 export async function createStory(story) {
   return request("/stories/", { method: "POST", headers: authHeaders(), body: story });
 }
+
+export function updateStory(id, data) { return request(`/stories/${id}`, { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); }
+export function deleteStory(id) { return request(`/stories/${id}`, { method: "DELETE", headers: authHeaders() }); }
 
 export async function deleteAdminItem(type, id) {
   return request(`/admin/${type}/${id}`, { method: "DELETE", headers: authHeaders() });

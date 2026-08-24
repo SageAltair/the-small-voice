@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -31,6 +32,8 @@ ensure_admin_user()
 
 UPLOAD_DIR = Path(__file__).resolve().parents[1] / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
+FRONTEND_DIST_DIR = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+FRONTEND_INDEX_FILE = FRONTEND_DIST_DIR / "index.html"
 
 
 app = FastAPI(
@@ -61,8 +64,10 @@ app.include_router(tags_router)
 app.include_router(resources_router)
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def root():
+    if FRONTEND_INDEX_FILE.is_file():
+        return FileResponse(FRONTEND_INDEX_FILE)
     return {
         "message": "Welcome to The Small Voice API",
         "version": "0.6.0",
@@ -74,3 +79,14 @@ def health_check():
     return {
         "status": "healthy",
     }
+
+
+@app.get("/{frontend_path:path}", include_in_schema=False)
+def serve_frontend(frontend_path: str):
+    """Serve the React single-page app, including client-side dashboard routes."""
+    requested_file = (FRONTEND_DIST_DIR / frontend_path).resolve()
+    if FRONTEND_DIST_DIR.exists() and requested_file.is_relative_to(FRONTEND_DIST_DIR.resolve()) and requested_file.is_file():
+        return FileResponse(requested_file)
+    if FRONTEND_INDEX_FILE.is_file():
+        return FileResponse(FRONTEND_INDEX_FILE)
+    return {"detail": "Frontend build not found. Run npm run build in the frontend directory."}

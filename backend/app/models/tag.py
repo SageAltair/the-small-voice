@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -31,3 +31,6 @@ class Tag(Base):
         secondary="story_tags",
         back_populates="tags",
     )
+
+    owner_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
+    approved: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

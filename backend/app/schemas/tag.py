@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict
 class TagCreate(BaseModel):
     name: str
     slug: str
+    approved: bool = True
+    owner_id: int | None = None
 
 
 class TagResponse(BaseModel):

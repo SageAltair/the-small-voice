@@ -23,6 +23,7 @@ class ResourceResponse(BaseModel):
     published: bool
     carousel_urls: list[str] = Field(default_factory=list)
     created_at: datetime
+    owner_id: int | None = None
 
     model_config = ConfigDict(
         from_attributes=True,

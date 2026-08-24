@@ -42,6 +42,7 @@ class StoryResponse(BaseModel):
     tags: list[TagResponse] = []
     likes_count: int = 0
     comments: list["CommentResponse"] = []
+    owner_id: int | None = None
 
     model_config = ConfigDict(
         from_attributes=True,

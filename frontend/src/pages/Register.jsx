@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, BookOpen, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { register } from "../services/api";
 
 export default function Register() {
@@ -43,59 +44,37 @@ export default function Register() {
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-card">
-
-        <div className="auth-brand">
-          <div className="auth-mark">TSV</div>
+    <main className="auth-shell">
+      <section className="auth-card" aria-labelledby="register-title">
+        <Link className="auth-brand" to="/">
+          <span className="auth-mark"><BookOpen size={20} /></span>
           <span>The Small Voice</span>
-        </div>
+        </Link>
 
         <p className="eyebrow">JOIN THE COMMUNITY</p>
 
-        <h1>Create your account</h1>
+        <h1 id="register-title">Create your account.</h1>
 
         <p className="auth-description">
           Create your account and become part of
           The Small Voice community.
         </p>
 
-        <form onSubmit={handleSubmit}>
+        <form className="auth-form" onSubmit={handleSubmit}>
 
           <label>
             Username
-            <input
-              name="username"
-              value={form.username}
-              onChange={change}
-              autoComplete="username"
-              required
-            />
+            <span className="auth-input"><UserRound size={17} /><input name="username" value={form.username} onChange={change} autoComplete="username" placeholder="Choose a username" required /></span>
           </label>
 
           <label>
             Email
-            <input
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={change}
-              autoComplete="email"
-              required
-            />
+            <span className="auth-input"><Mail size={17} /><input name="email" type="email" value={form.email} onChange={change} autoComplete="email" placeholder="you@example.com" required /></span>
           </label>
 
           <label>
             Password
-            <input
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={change}
-              autoComplete="new-password"
-              minLength={6}
-              required
-            />
+            <span className="auth-input"><LockKeyhole size={17} /><input name="password" type="password" value={form.password} onChange={change} autoComplete="new-password" placeholder="At least 6 characters" minLength={6} required /></span>
           </label>
 
           {error && (
@@ -109,7 +88,7 @@ export default function Register() {
             type="submit"
             disabled={busy}
           >
-            {busy ? "Creating account..." : "Create account"}
+            {busy ? "Creating account..." : <>Create account <ArrowRight size={16} /></>}
           </button>
 
         </form>

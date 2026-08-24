@@ -1,7 +1,8 @@
 from pathlib import Path
+from uuid import uuid4
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -22,6 +23,37 @@ router = APIRouter(
 )
 
 UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads"
+MAX_RESOURCE_SIZE = 25 * 1024 * 1024
+
+
+@router.post("/upload", response_model=ResourceResponse)
+def create_uploaded_resource(
+    title: str = Form(...),
+    description: str = Form(...),
+    resource_type: str = Form(...),
+    resource: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Submit a local resource file for administrator review."""
+    if current_user.role not in {"author", "admin"}:
+        raise HTTPException(status_code=403, detail="You cannot create resources")
+    content = resource.file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty")
+    if len(content) > MAX_RESOURCE_SIZE:
+        raise HTTPException(status_code=400, detail="Files must be 25 MB or smaller")
+    extension = Path(resource.filename or "resource").suffix.lower()
+    if not extension:
+        raise HTTPException(status_code=400, detail="Please upload a file with an extension")
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    filename = f"{uuid4().hex}{extension}"
+    (UPLOAD_DIR / filename).write_bytes(content)
+    item = Resource(title=title, description=description, resource_type=resource_type, url=f"/uploads/{filename}", downloadable=True, published=False, owner_id=current_user.id)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
 
 
 @router.post(
@@ -48,7 +80,8 @@ def create_resource(
         resource_type=resource_data.resource_type,
         url=resource_data.url,
         downloadable=resource_data.downloadable,
-        published=resource_data.published,
+        published=resource_data.published if current_user.role == "admin" else False,
+        owner_id=current_user.id,
     )
 
     db.add(resource)
@@ -127,6 +160,33 @@ def get_resources_by_type(
     )
 
     return result.scalars().all()
+
+
+@router.put("/manage/{resource_id}", response_model=ResourceResponse)
+def update_resource(resource_id: int, data: ResourceCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    resource = db.get(Resource, resource_id)
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    if current_user.role != "admin" and resource.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You cannot update this resource")
+    for field, value in data.model_dump().items():
+        if field != "published" or current_user.role == "admin":
+            setattr(resource, field, value)
+    if current_user.role != "admin":
+        resource.published = False
+    db.commit(); db.refresh(resource)
+    return resource
+
+
+@router.delete("/manage/{resource_id}")
+def delete_resource(resource_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    resource = db.get(Resource, resource_id)
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+    if current_user.role != "admin" and resource.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You cannot delete this resource")
+    db.delete(resource); db.commit()
+    return {"message": "Resource deleted"}
 
 
 @router.get("/{resource_id}/download")

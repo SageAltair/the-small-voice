@@ -11,6 +11,9 @@ from app.auth.security import (
 )
 from app.database import get_db
 from app.models.user import User
+from app.models.story import Story
+from app.models.resource import Resource
+from app.models.tag import Tag
 from app.schemas.user import (
     Token,
     UserCreate,
@@ -130,3 +133,13 @@ def get_me(
     ),
 ):
     return current_user
+
+
+@router.get("/dashboard")
+def dashboard(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Return only the signed-in contributor's submissions."""
+    return {
+        "stories": db.execute(select(Story).where(Story.owner_id == current_user.id).order_by(Story.created_at.desc())).scalars().all(),
+        "resources": db.execute(select(Resource).where(Resource.owner_id == current_user.id).order_by(Resource.created_at.desc())).scalars().all(),
+        "tags": db.execute(select(Tag).where(Tag.owner_id == current_user.id).order_by(Tag.name)).scalars().all(),
+    }

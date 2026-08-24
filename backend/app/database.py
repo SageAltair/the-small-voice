@@ -83,6 +83,26 @@ def migrate_legacy_schema():
                 )
             )
 
+    migrations = {
+        "stories": {"owner_id": "INTEGER"},
+        "resources": {"owner_id": "INTEGER"},
+        "tags": {"owner_id": "INTEGER", "approved": "BOOLEAN NOT NULL DEFAULT TRUE"},
+    }
+    with engine.begin() as connection:
+        for table, additions in migrations.items():
+            if not inspector.has_table(table):
+                continue
+            columns = {column["name"] for column in inspector.get_columns(table)}
+            for name, definition in additions.items():
+                if name not in columns:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
+
+        # Existing content is trusted; link old stories to matching accounts.
+        connection.execute(text(
+            "UPDATE stories SET owner_id = users.id FROM users "
+            "WHERE stories.owner_id IS NULL AND stories.author = users.username"
+        ))
+
 
 def ensure_admin_user():
     from app.auth.security import hash_password, verify_password

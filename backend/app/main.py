@@ -19,6 +19,7 @@ from app.routes.tags import router as tags_router
 from app.routes.users import router as users_router
 from app.routes.admin import router as admin_router
 from app.routes.newsletter import router as newsletter_router
+from app.config import FRONTEND_ORIGINS
 
 
 Base.metadata.create_all(
@@ -46,15 +47,11 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://the-small-voice-frontend.onrender.com",
-    ],
+    allow_origins=[origin.strip() for origin in FRONTEND_ORIGINS.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 app.include_router(users_router)
 app.include_router(admin_router)

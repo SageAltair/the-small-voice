@@ -71,7 +71,12 @@ deployment:
 ADMIN_USERNAME=admin
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=replace-with-a-strong-password
+FRONTEND_ORIGINS=https://your-frontend-domain.example.com
 ```
+
+`FRONTEND_ORIGINS` may contain multiple comma-separated domains. The configured
+administrator password is synchronized at startup, so setting these variables
+and redeploying also resets a previously created administrator account.
 
 Open `/admin` in the frontend to sign in and manage stories, resources,
 topics, and contributors.

@@ -85,7 +85,7 @@ def migrate_legacy_schema():
 
 
 def ensure_admin_user():
-    from app.auth.security import hash_password
+    from app.auth.security import hash_password, verify_password
     from app.config import ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_USERNAME
     from app.models.user import User
 
@@ -100,8 +100,12 @@ def ensure_admin_user():
                 hashed_password=hash_password(ADMIN_PASSWORD),
                 role="admin",
             ))
-        elif admin.email != ADMIN_EMAIL:
+        else:
             admin.email = ADMIN_EMAIL
+            admin.role = "admin"
+            admin.is_active = True
+            if not verify_password(ADMIN_PASSWORD, admin.hashed_password):
+                admin.hashed_password = hash_password(ADMIN_PASSWORD)
         db.commit()
 
 

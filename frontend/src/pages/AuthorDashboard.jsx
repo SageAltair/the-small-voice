@@ -9,8 +9,20 @@ const slugify = (value) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-"
 
 export default function AuthorDashboard() {
   const [dashboard, setDashboard] = useState(null); const [user, setUser] = useState(null); const [section, setSection] = useState("stories"); const [editor, setEditor] = useState(null); const [draft, setDraft] = useState(blankStory); const [error, setError] = useState(""); const [notice, setNotice] = useState(""); const [busy, setBusy] = useState(false); const [query, setQuery] = useState("");
-  async function refresh() { try { const [result, currentUser] = await Promise.all([getAuthorDashboard(), getCurrentUser()]); setDashboard(result); setUser(currentUser); } catch (err) { setError(err.message); } }
-  useEffect(() => { refresh(); }, []);
+  function refresh() {
+    return Promise.all([getAuthorDashboard(), getCurrentUser()])
+      .then(([result, currentUser]) => {
+        setDashboard(result);
+        setUser(currentUser);
+      })
+      .catch((err) => {
+        setError(err.message);
+      });
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
   const items = useMemo(() => (dashboard?.[section] || []).filter((item) => [item.title, item.category, item.resource_type, item.slug].filter(Boolean).join(" ").toLowerCase().includes(query.toLowerCase())), [dashboard, section, query]);
   const approved = (dashboard?.[section] || []).filter((item) => item.published).length;
   function open(item = null) { setError(""); setEditor(item || {}); setDraft(item ? { ...item } : section === "stories" ? blankStory : blankResource); }

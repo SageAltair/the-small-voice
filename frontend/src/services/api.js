@@ -1,6 +1,6 @@
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  "http://127.0.0.1:8000";
+  (import.meta.env.DEV ? "http://127.0.0.1:8000" : "https://the-small-voice.onrender.com");
 
 const API_BASE_URL = API_URL.replace(/\/$/, "");
 

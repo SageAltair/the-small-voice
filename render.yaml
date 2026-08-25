@@ -1,0 +1,24 @@
+# Render Blueprint for The Small Voice frontend static site.
+#
+# This enables client-side (SPA) routing so entering URLs such as
+# /login, /register, /dashboard, and /admin directly (or refreshing on
+# them) serves the React app's index.html instead of a blank/404 page.
+#
+# If you already have the frontend service created in the Render
+# dashboard, you can alternatively add the same rule manually under
+# the service's Redirects/Rewrites tab:
+#   Source Path:  /*
+#   Destination:  /index.html
+#   Action:       Rewrite
+
+services:
+  - type: web
+    name: the-small-voice-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

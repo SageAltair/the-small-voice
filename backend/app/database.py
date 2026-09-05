@@ -103,6 +103,29 @@ def migrate_legacy_schema():
             "WHERE stories.owner_id IS NULL AND stories.author = users.username"
         ))
 
+    # ----------------------------
+    # Users: email verification + Google sign-in columns
+    # ----------------------------
+    if inspector.has_table("users"):
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        with engine.begin() as connection:
+            if "is_verified" not in user_columns:
+                # New accounts are created with is_verified=False. Accounts that
+                # existed before this feature are treated as already verified so
+                # they keep working.
+                connection.execute(text(
+                    "ALTER TABLE users ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
+                connection.execute(text("UPDATE users SET is_verified = TRUE"))
+
+            if "google_id" not in user_columns:
+                connection.execute(text(
+                    "ALTER TABLE users ADD COLUMN google_id VARCHAR(255)"
+                ))
+                connection.execute(text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_id ON users (google_id)"
+                ))
+
 
 def ensure_admin_user():
     from app.auth.security import hash_password, verify_password
@@ -119,11 +142,13 @@ def ensure_admin_user():
                 email=ADMIN_EMAIL,
                 hashed_password=hash_password(ADMIN_PASSWORD),
                 role="admin",
+                is_verified=True,
             ))
         else:
             admin.email = ADMIN_EMAIL
             admin.role = "admin"
             admin.is_active = True
+            admin.is_verified = True
             if not verify_password(ADMIN_PASSWORD, admin.hashed_password):
                 admin.hashed_password = hash_password(ADMIN_PASSWORD)
         db.commit()

@@ -23,24 +23,31 @@ async function request(endpoint, options = {}) {
 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
+    let code = null;
 
     try {
       const errorData = await response.json();
 
       if (errorData.detail) {
-        if (Array.isArray(errorData.detail)) {
+        if (typeof errorData.detail === "string") {
+          message = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
           message = errorData.detail
             .map((error) => error.msg)
             .join(", ");
-        } else {
-          message = errorData.detail;
+        } else if (errorData.detail.message) {
+          message = errorData.detail.message;
+          code = errorData.detail.code || null;
         }
       }
     } catch {
       // Ignore invalid JSON responses
     }
 
-    throw new Error(message);
+    const error = new Error(message);
+    error.code = code;
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();
@@ -54,6 +61,24 @@ function authHeaders() {
         Authorization: `Bearer ${token}`,
       }
     : {};
+}
+
+export function getGoogleAuthUrl() {
+  return `${API_BASE_URL}/users/google/authorize`;
+}
+
+export function setAccessToken(token) {
+  localStorage.setItem("access_token", token);
+}
+
+export function resendVerification(email) {
+  return request("/users/resend-verification", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
 }
 
 

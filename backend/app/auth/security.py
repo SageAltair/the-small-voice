@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     ALGORITHM,
+    EMAIL_VERIFICATION_EXPIRE_HOURS,
     SECRET_KEY,
 )
 from app.database import get_db
@@ -40,13 +41,14 @@ def verify_password(
     )
 
 
-def create_access_token(data: dict) -> str:
+def create_token(data: dict, expires_minutes: int | None = None) -> str:
+    """Sign a JWT with an expiry, reusing the app's access-token settings."""
     to_encode = data.copy()
 
     expire = (
         datetime.now(timezone.utc)
         + timedelta(
-            minutes=ACCESS_TOKEN_EXPIRE_MINUTES,
+            minutes=expires_minutes if expires_minutes is not None else ACCESS_TOKEN_EXPIRE_MINUTES,
         )
     )
 
@@ -57,6 +59,40 @@ def create_access_token(data: dict) -> str:
         SECRET_KEY,
         algorithm=ALGORITHM,
     )
+
+
+def create_access_token(data: dict) -> str:
+    return create_token(data)
+
+
+def create_email_verification_token(user_id: int) -> str:
+    return create_token(
+        {
+            "sub": str(user_id),
+            "type": "email_verification",
+        },
+        expires_minutes=EMAIL_VERIFICATION_EXPIRE_HOURS * 60,
+    )
+
+
+def decode_email_verification_token(token: str) -> int:
+    """Return the user id encoded in an email-verification token."""
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+    except JWTError:
+        raise ValueError("Invalid verification token")
+
+    if payload.get("type") != "email_verification":
+        raise ValueError("Invalid verification token")
+
+    try:
+        return int(payload["sub"])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError("Invalid verification token")
 
 
 def get_current_user(
@@ -93,5 +129,11 @@ def get_current_user(
 
     if user is None:
         raise credentials_exception
+
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email not verified. Please verify your email and try again.",
+        )
 
     return user

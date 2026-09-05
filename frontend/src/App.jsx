@@ -1,5 +1,6 @@
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import GoogleAuthCallback from "./pages/GoogleAuthCallback";
 import AuthorDashboard from "./pages/AuthorDashboard";
 
 import {
@@ -52,6 +53,10 @@ export default function App() {
 
 function AppLayout() {
   const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   const isAdmin = pathname.startsWith("/admin") || pathname.startsWith("/dashboard") || pathname.startsWith("/user/dashboard") || pathname === "/user-dashboard";
 
@@ -120,6 +125,11 @@ function AppLayout() {
           <Route
             path="/register"
             element={<Register />}
+          />
+
+          <Route
+            path="/auth/google"
+            element={<GoogleAuthCallback />}
           />
 
           <Route path="/dashboard" element={<AuthorDashboard />} />

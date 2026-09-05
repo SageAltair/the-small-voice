@@ -9,12 +9,22 @@ class UserCreate(BaseModel):
     password: str
 
 
+class RegisterResponse(BaseModel):
+    message: str
+    email: EmailStr
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
     email: EmailStr
     role: str
     is_active: bool
+    is_verified: bool
     created_at: datetime
 
     model_config = ConfigDict(

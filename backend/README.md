@@ -80,3 +80,50 @@ and redeploying also resets a previously created administrator account.
 
 Open `/admin` in the frontend to sign in and manage stories, resources,
 topics, and contributors.
+
+## Accounts & E-mail Verification
+
+New accounts must verify their e-mail before they can sign in. The site
+sends verification e-mails from `thesmallvoice3@gmail.com`:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=thesmallvoice3@gmail.com
+# Gmail App Password (16 characters) — not the normal Gmail password.
+# Google Account -> Security -> 2-Step Verification -> App passwords
+SMTP_PASSWORD=replace-with-gmail-app-password
+SMTP_FROM_NAME=The Small Voice
+FRONTEND_BASE_URL=http://localhost:5173   # or https://your-frontend-domain.example.com
+```
+
+> When `SMTP_PASSWORD` is left empty the server logs the verification link to
+> the console instead of sending e-mail, which is handy for local testing.
+> The link closes at `/users/verify-email?token=...` and valid for 24 hours
+> (`EMAIL_VERIFICATION_EXPIRE_HOURS`).
+
+Existing accounts created before this feature are automatically treated as
+verified on startup. New registrations start unverified and sign-in is blocked
+until the link in the e-mail is clicked. A `/users/resend-verification`
+endpoint lets users request a new link.
+
+## Google Sign-In ("Continue with Google")
+
+The register and login pages offer Google OAuth. Configure it in
+`.env`/deployment:
+
+```env
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+Create credentials in the
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+as an OAuth client of type *Web application*, and register the callback as an
+authorised redirect URI:
+
+- Local: `http://127.0.0.1:8000/users/google/callback`
+- Production: `https://<your-backend-domain>/users/google/callback`
+
+Google users are created automatically with a verified e-mail and land on the
+contributor dashboard after signing in.

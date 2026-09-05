@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, BookOpen, LockKeyhole, Mail, UserRound } from "lucide-react";
-import { register } from "../services/api";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight, BookOpen, CheckCircle2, LockKeyhole, Mail, RefreshCw, UserRound } from "lucide-react";
+
+import GoogleSignIn from "../components/GoogleSignIn";
+import { register, resendVerification } from "../services/api";
 
 export default function Register() {
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const googleUnconfigured = searchParams.get("google") === "unconfigured";
 
   const [form, setForm] = useState({
     username: "",
@@ -14,6 +17,12 @@ export default function Register() {
 
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // "Check your inbox" state shown after a successful registration.
+  const [registered, setRegistered] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
 
   function change(event) {
     setForm({
@@ -29,18 +38,86 @@ export default function Register() {
     setBusy(true);
 
     try {
-      await register(
+      const result = await register(
         form.username,
         form.email,
         form.password
       );
 
-      navigate("/login");
+      setRegisteredEmail(result.email || form.email);
+      setRegistered(true);
     } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleResend() {
+    setResendMessage("");
+    setResending(true);
+
+    try {
+      const result = await resendVerification(registeredEmail);
+      setResendMessage(result.message);
+    } catch (err) {
+      setResendMessage(err.message);
+    } finally {
+      setResending(false);
+    }
+  }
+
+  if (registered) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card" aria-labelledby="verify-title">
+          <Link className="auth-brand" to="/">
+            <span className="auth-mark"><BookOpen size={20} /></span>
+            <span>The Small Voice</span>
+          </Link>
+
+          <p className="eyebrow">ALMOST THERE</p>
+          <h1 id="verify-title">Check your inbox.</h1>
+          <p className="auth-description">
+            We sent a verification link to{" "}
+            <strong>{registeredEmail}</strong>. Click the link to activate
+            your account, then sign in.
+          </p>
+
+          <div className="auth-success">
+            <strong><CheckCircle2 size={15} /> Just one more step</strong>
+            <span>
+              The link expires within 24 hours. No e-mail? Check your spam
+              folder, or resend it below.
+            </span>
+          </div>
+
+          {resendMessage && (
+            <p className={`form-error ${resendMessage.includes("has been sent") ? "form-success" : ""}`}>
+              {resendMessage}
+            </p>
+          )}
+
+          <div className="auth-resend">
+            <button
+              className="button"
+              type="button"
+              disabled={resending}
+              onClick={handleResend}
+            >
+              {resending ? "Sending…" : <>Resend verification e-mail <RefreshCw size={15} /></>}
+            </button>
+          </div>
+
+          <p className="auth-switch">
+            Already verified?{" "}
+            <Link to="/login">
+              Sign in
+            </Link>
+          </p>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -53,12 +130,24 @@ export default function Register() {
 
         <p className="eyebrow">JOIN THE COMMUNITY</p>
 
+        {googleUnconfigured && (
+          <p className="auth-banner error">
+            Google sign-in isn&apos;t set up on this server yet. You can still
+            create an account with an e-mail address below.
+          </p>
+        )}
+
         <h1 id="register-title">Create your account.</h1>
 
         <p className="auth-description">
           Create your account and become part of
           The Small Voice community.
         </p>
+
+        <div className="auth-google-wrap">
+          <GoogleSignIn label="Continue with Google" />
+          <div className="auth-divider">or sign up with e-mail</div>
+        </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
 
@@ -90,6 +179,10 @@ export default function Register() {
           >
             {busy ? "Creating account..." : <>Create account <ArrowRight size={16} /></>}
           </button>
+
+          <p className="auth-note">
+            We&apos;ll e-mail you a link to verify your address before you can sign in.
+          </p>
 
         </form>
 

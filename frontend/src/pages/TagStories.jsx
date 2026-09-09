@@ -18,7 +18,7 @@ import { useLanguage } from "../i18n/LanguageContext";
 
 
 export default function TagStories() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { slug } = useParams();
 
   const [stories, setStories] =
@@ -32,24 +32,36 @@ export default function TagStories() {
 
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadStories() {
       setLoading(true);
       setError(null);
 
       try {
         const data =
-          await getStoriesByTag(slug);
+          await getStoriesByTag(slug, language);
 
-        setStories(data);
+        if (!cancelled) {
+          setStories(data);
+        }
       } catch (err) {
-        setError(err.message);
+        if (!cancelled) {
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     loadStories();
-  }, [slug]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, language]);
 
 
   return (

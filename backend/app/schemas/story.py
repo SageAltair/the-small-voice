@@ -14,6 +14,7 @@ class StoryCreate(BaseModel):
     category: str
     published: bool = False
     featured: bool = False
+    language: str = "en"
 
 
 class StoryUpdate(BaseModel):
@@ -25,6 +26,7 @@ class StoryUpdate(BaseModel):
     category: str | None = None
     published: bool | None = None
     featured: bool | None = None
+    language: str | None = None
 
 
 class StoryResponse(BaseModel):
@@ -37,6 +39,7 @@ class StoryResponse(BaseModel):
     category: str
     published: bool
     featured: bool
+    language: str = "en"
     created_at: datetime
     published_at: datetime | None = None
     tags: list[TagResponse] = []

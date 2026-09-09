@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, BookOpen, CheckCircle2, LockKeyhole, Mail, RefreshCw, UserRound } from "lucide-react";
+import { ArrowRight, CheckCircle2, LockKeyhole, Mail, RefreshCw, UserRound } from "lucide-react";
+import BrandMark from "../components/BrandMark";
 
 import GoogleSignIn from "../components/GoogleSignIn";
 import { register, resendVerification } from "../services/api";
@@ -72,7 +73,7 @@ export default function Register() {
       <main className="auth-shell">
         <section className="auth-card" aria-labelledby="verify-title">
           <Link className="auth-brand" to="/">
-            <span className="auth-mark"><BookOpen size={20} /></span>
+            <BrandMark />
             <span>The Small Voice</span>
           </Link>
 
@@ -124,7 +125,7 @@ export default function Register() {
     <main className="auth-shell">
       <section className="auth-card" aria-labelledby="register-title">
         <Link className="auth-brand" to="/">
-          <span className="auth-mark"><BookOpen size={20} /></span>
+          <BrandMark />
           <span>The Small Voice</span>
         </Link>
 

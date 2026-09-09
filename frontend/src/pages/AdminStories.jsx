@@ -36,6 +36,7 @@ export default function AdminStories() {
         category: editing.category,
         content: editing.content,
         published: editing.published,
+        language: editing.language || "en",
       });
       setEditing(null);
       await loadStories();
@@ -65,6 +66,7 @@ export default function AdminStories() {
             <label>Slug<input value={editing.slug} onChange={(event) => setEditing({ ...editing, slug: event.target.value })} required /></label>
             <label>Author<input value={editing.author} onChange={(event) => setEditing({ ...editing, author: event.target.value })} required /></label>
             <label>Category<input value={editing.category} onChange={(event) => setEditing({ ...editing, category: event.target.value })} required /></label>
+            <label>Language<select value={editing.language || "en"} onChange={(event) => setEditing({ ...editing, language: event.target.value })}><option value="en">English</option><option value="sw">Swahili</option></select></label>
             <div className="story-form-wide"><span className="editor-label">Story</span><RichTextEditor value={editing.content} onChange={(content) => setEditing({ ...editing, content })} /></div>
             <label className="publish-toggle"><input type="checkbox" checked={editing.published} onChange={(event) => setEditing({ ...editing, published: event.target.checked })} /> Published</label>
             <div className="admin-actions"><button className="button" type="submit">Save changes</button><button className="button secondary" type="button" onClick={() => setEditing(null)}>Cancel</button></div>

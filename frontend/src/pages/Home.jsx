@@ -9,9 +9,10 @@ import ErrorMessage from "../components/ErrorMessage";
 import { getImageUrl, getStories, getTags } from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
 import useReveal from "../hooks/useReveal";
+import homeImage from "../assets/home.png";
 
 export default function Home() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [stories, setStories] = useState([]);
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,8 +35,9 @@ export default function Home() {
         .fromTo(".hero-text", { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.65, ease: "power3.out" }, "<0.18")
         .fromTo(".hero-actions", { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.55, ease: "power3.out" }, "<0.1");
 
-      gsap.to(".home-motion-orbit", { rotation: 360, duration: 30, ease: "none", repeat: -1 });
-      gsap.to(".home-motion-rays", { rotation: -360, duration: 42, ease: "none", repeat: -1 });
+      gsap.set(".home-motion-wave", { scale: 0.2, opacity: 0.5 });
+      gsap.to(".home-motion-wave", { scale: 4, opacity: 0, duration: 3.5, ease: "power1.out", stagger: 0.9, repeat: -1 });
+      gsap.to(".home-motion-rays", { rotation: -360, duration: 90, ease: "none", repeat: -1 });
       gsap.to(".home-motion-blob-a", { x: 22, y: -18, rotation: 9, duration: 5.5, ease: "sine.inOut", repeat: -1, yoyo: true });
       gsap.to(".home-motion-blob-b", { x: -18, y: 20, rotation: -12, duration: 6.5, ease: "sine.inOut", repeat: -1, yoyo: true });
       gsap.to(".home-motion-blob-c", { y: -15, duration: 4.4, ease: "sine.inOut", repeat: -1, yoyo: true });
@@ -44,13 +46,23 @@ export default function Home() {
         .to(".hero-title-word > span", { color: "var(--text)", y: 0, duration: 0.48, stagger: { each: 0.1, from: "end" }, ease: "power2.inOut" }, "+=0.65");
     }, page);
 
+    const topics = gsap.utils.toArray<HTMLElement>(".topic-card");
+    if (topics.length) {
+      gsap.fromTo(topics, { autoAlpha: 0, y: 30, scale: 0.95 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.8, stagger: 0.1, ease: "power3.out", delay: 1.2 });
+    }
+
+    const steps = gsap.utils.toArray<HTMLElement>(".journey-card");
+    if (steps.length) {
+      gsap.fromTo(steps, { autoAlpha: 0, y: 40, scale: 0.95 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.85, stagger: 0.12, ease: "power3.out", delay: 1.5 });
+    }
+
     return () => context.revert();
   }, []);
 
   useEffect(() => {
-    getStories().then(setStories).catch((err) => setError(err.message)).finally(() => setLoading(false));
-    getTags().then(setTags).catch(() => setTags([]));
-  }, []);
+    getStories(language).then(setStories).catch((err) => setError(err.message)).finally(() => setLoading(false));
+    getTags(language).then(setTags).catch(() => setTags([]));
+  }, [language]);
 
   const featured = stories.find((story) => story.featured) || stories[0];
   const recent = stories.slice(0, 4);
@@ -58,13 +70,13 @@ export default function Home() {
   const heroWords = t.heroTitle.trim().split(/\s+/);
 
   return <main ref={page}>
-    <section className="hero"><div className="home-motion" aria-hidden="true"><span className="home-motion-rays" /><span className="home-motion-orbit" /><span className="home-motion-blob home-motion-blob-a" /><span className="home-motion-blob home-motion-blob-b" /><span className="home-motion-blob home-motion-blob-c" /></div><div className="container hero-content"><div className="hero-copy"><p className="eyebrow hero-eyebrow">{t.siteName}</p><h1 className="hero-title" aria-label={t.heroTitle}>{heroWords.map((word, index) => <span className="hero-title-word" key={`${word}-${index}`}><span>{word}</span></span>)}</h1><p className="hero-text">{t.discover}</p><div className="hero-actions"><Link to="/stories" className="button">{t.exploreStories}</Link><Link to="/resources" className="button secondary">{t.startLearning}</Link></div></div></div></section>
+    <section className="hero"><div className="home-motion" aria-hidden="true"><span className="home-motion-rays" /><span className="home-motion-wave" /><span className="home-motion-wave" /><span className="home-motion-wave" /><span className="home-motion-wave" /><span className="home-motion-blob home-motion-blob-a" /><span className="home-motion-blob home-motion-blob-b" /><span className="home-motion-blob home-motion-blob-c" /></div><div className="container hero-content"><div className="hero-copy"><p className="eyebrow hero-eyebrow">{t.siteName}</p><h1 className="hero-title" aria-label={t.heroTitle}>{heroWords.map((word, index) => <span className="hero-title-word" key={`${word}-${index}`}><span>{word}</span></span>)}</h1><p className="hero-text">{t.discover}</p><div className="hero-actions"><Link to="/stories" className="button">{t.exploreStories}</Link><Link to="/resources" className="button secondary">{t.startLearning}</Link></div></div><figure className="home-hero-figure"><img src={homeImage} alt="The Small Voice" decoding="async" /></figure></div></section>
     {loading && <div className="container"><Loading message={t.loadingStories} /></div>}
     {error && <div className="container"><ErrorMessage message={error} /></div>}
     {!loading && !error && featured && <section className="container featured-story"><div className="featured-copy"><p className="eyebrow">{t.featured}</p><h2>{featured.title}</h2><p>{excerpt}</p><Link to={`/stories/${featured.id}`} className="text-link">{t.readStory} <span aria-hidden="true">→</span></Link></div>{featured.image_url && <img src={getImageUrl(featured.image_url)} alt={featured.title} />}</section>}
     {!loading && !error && <section className="container recent-stories"><div className="section-heading"><div><p className="eyebrow">{t.justArrived}</p><h2>{t.recent}</h2></div><Link to="/stories" className="text-link">{t.viewAll} <span aria-hidden="true">→</span></Link></div><div className="grid">{recent.map((story) => <StoryCard key={story.id} story={story} />)}</div></section>}
-    <section className="container home-explore"><div className="section-heading"><div><p className="eyebrow">{t.explore}</p><h2>{t.topics}</h2></div><Link to="/stories" className="text-link">{t.exploreStories} <span aria-hidden="true">→</span></Link></div><div className="topic-doors">{tags.map((tag) => <Link key={tag.id} to={`/tags/${tag.slug}`}>{tag.name}<span aria-hidden="true">→</span></Link>)}</div></section>
-    <section className="container journey"><h2>{t.journey}</h2><div className="journey-grid"><div><strong>01</strong><h3>{t.journeyStory}</h3><p>{t.journeyStoryDescription}</p></div><div><strong>02</strong><h3>{t.journeyLearn}</h3><p>{t.journeyLearnDescription}</p></div><div><strong>03</strong><h3>{t.journeyGrow}</h3><p>{t.journeyGrowDescription}</p></div><div><strong>04</strong><h3>{t.journeyJourney}</h3><p>{t.journeyJourneyDescription}</p></div><div><strong>05</strong><h3>{t.journeyMission}</h3><p>{t.journeyMissionDescription}</p></div></div><div className="journey-actions"><Link to="/resources" className="button">{t.exploreResources}</Link><Link to="/stories" className="button secondary">{t.discoverMoreStories}</Link></div></section>
+    <section className="container home-explore"><div className="section-heading"><div><p className="eyebrow">{t.explore}</p><h2>{t.topics}</h2></div><Link to="/stories" className="text-link">{t.exploreStories} <span aria-hidden="true">→</span></Link></div><div className="topic-track">{tags.map((tag) => <Link key={tag.id} to={`/tags/${tag.slug}`} className="topic-card"><span className="topic-card-accent" aria-hidden="true" /><span className="topic-card-name">{tag.name}</span><span className="topic-card-arrow" aria-hidden="true">→</span></Link>)}</div></section>
+    <section className="container journey"><h2>{t.journey}</h2><div className="journey-track">{["01","02","03","04","05"].map((num, i) => <Link key={num} to={["/stories","/resources","/resources","/stories","/give"][i]} className="journey-card"><span className="journey-card-number">{num}</span><div className="journey-card-body"><h3>{[t.journeyStory, t.journeyLearn, t.journeyGrow, t.journeyJourney, t.journeyMission][i]}</h3><p>{[t.journeyStoryDescription, t.journeyLearnDescription, t.journeyGrowDescription, t.journeyJourneyDescription, t.journeyMissionDescription][i]}</p></div></Link>)}</div><div className="journey-actions"><Link to="/resources" className="button">{t.exploreResources}</Link><Link to="/stories" className="button secondary">{t.discoverMoreStories}</Link></div></section>
     <section className="container home-newsletter"><div><p className="eyebrow">{t.inboxNote}</p><h2>{t.newsletter}</h2><p>{t.newsletterDescription}</p></div><NewsletterSignup /></section>
   </main>;
 }

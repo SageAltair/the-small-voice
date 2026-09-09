@@ -51,9 +51,12 @@ export default function RichTextEditor({ value, onChange }) {
   }
 
   async function insertPhoto(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try { const imageUrl = await uploadAdminImage(file); command("insertHTML", `<img src="${imageUrl}" alt="" />`); } finally { event.target.value = ""; }
+    const files = event.target.files;
+    if (!files?.length) return;
+    for (const file of files) {
+      try { const imageUrl = await uploadAdminImage(file); command("insertHTML", `<img src="${imageUrl}" alt="" style="max-width:100%;height:auto;display:block;margin:1em 0;border-radius:8px;" />`); } catch (error) { /* continue with remaining files */ }
+    }
+    event.target.value = "";
   }
 
   function insertLink() {
@@ -98,7 +101,7 @@ export default function RichTextEditor({ value, onChange }) {
       <ToolbarButton label="Align centre" onClick={() => command("justifyCenter")}><AlignCenter size={15} /></ToolbarButton>
       <ToolbarButton label="Align right" onClick={() => command("justifyRight")}><AlignRight size={15} /></ToolbarButton>
       <ToolbarButton label="Insert divider" onClick={() => command("insertHTML", "<hr /><p><br></p>")}><Minus size={15} /></ToolbarButton>
-      <label className="editor-upload" title="Insert photo"><ImagePlus size={15} /><span>Photo</span><input type="file" accept="image/*" onChange={insertPhoto} /></label>
+      <label className="editor-upload" title="Insert photo"><ImagePlus size={15} /><span>Photo</span><input type="file" accept="image/*" multiple onChange={insertPhoto} /></label>
       <ToolbarButton label="Insert video" onClick={insertVideo}><Video size={15} /></ToolbarButton>
       <span className="editor-divider" />
       <ToolbarButton label="Undo" onClick={() => command("undo")}><Undo2 size={15} /></ToolbarButton>

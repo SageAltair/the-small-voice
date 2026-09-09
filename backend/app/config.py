@@ -1,9 +1,12 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 
-load_dotenv()
+# Load the backend/.env file no matter which directory the server is started
+# from. Variables already present in the environment still take precedence.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -32,6 +35,11 @@ EMAIL_VERIFICATION_EXPIRE_HOURS = int(
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@example.com")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "change-admin-password")
+
+# Inbox that receives Contact-Us and feedback submissions from the website.
+# Falls back to the administrator address so a deployment without extra
+# configuration still delivers mail somewhere sensible.
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", ADMIN_EMAIL)
 
 # Browser URL the single-page app is served from. Used as the landing target
 # after email verification and Google sign-in callbacks.
@@ -74,6 +82,21 @@ SMTP_USER = os.getenv("SMTP_USER", "thesmallvoice3@gmail.com")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes", "on"}
 SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "The Small Voice")
+
+# Address used in the From header and SMTP envelope. Defaults to the SMTP
+# login (Gmail requires them to match). Set it explicitly when the provider's
+# login is not a real mailbox, e.g. SendGrid (username "apikey") or Brevo.
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USER)
+
+if not SMTP_PASSWORD:
+    # Make the misconfiguration obvious at startup instead of when the first
+    # visitor submits the contact form or tries to verify their account.
+    import logging
+
+    logging.getLogger("app.config").warning(
+        "SMTP_PASSWORD is not set - outgoing e-mail (account verification, "
+        "contact form, feedback) is disabled until it is configured in .env."
+    )
 
 
 if not DATABASE_URL:

@@ -2,6 +2,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import GoogleAuthCallback from "./pages/GoogleAuthCallback";
 import AuthorDashboard from "./pages/AuthorDashboard";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfUse from "./pages/TermsOfUse";
 
 import {
   BrowserRouter,
@@ -110,6 +112,16 @@ function AppLayout() {
           <Route
             path="/give"
             element={<Give />}
+          />
+
+          <Route
+            path="/privacy-policy"
+            element={<PrivacyPolicy />}
+          />
+
+          <Route
+            path="/terms-of-use"
+            element={<TermsOfUse />}
           />
 
 

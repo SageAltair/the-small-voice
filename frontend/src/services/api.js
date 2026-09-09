@@ -63,6 +63,14 @@ function authHeaders() {
     : {};
 }
 
+// Appends the selected content language to a public content endpoint so the
+// API only returns stories/resources written in that language.
+function withLang(endpoint, lang) {
+  if (!lang) return endpoint;
+
+  return `${endpoint}${endpoint.includes("?") ? "&" : "?"}lang=${encodeURIComponent(lang)}`;
+}
+
 export function getGoogleAuthUrl() {
   return `${API_BASE_URL}/users/google/authorize`;
 }
@@ -162,22 +170,31 @@ export async function getAdminData() {
 // STORIES
 // ================================
 
-export async function getStories() {
-  return request("/stories/");
+export async function getStories(lang) {
+  return request(withLang("/stories/", lang));
 }
 
-export async function getStory(id) {
-  return request(`/stories/${id}`);
+export async function getStory(id, lang) {
+  return request(withLang(`/stories/${id}`, lang));
 }
 
-export async function getRelatedStories(id) {
-  return request(`/stories/${id}/related`);
+export async function getRelatedStories(id, lang) {
+  return request(withLang(`/stories/${id}/related`, lang));
 }
 
-export async function searchStories(query) {
+export async function searchStories(query, lang) {
   return request(
-    `/stories/search?q=${encodeURIComponent(query)}`
+    withLang(`/stories/search?q=${encodeURIComponent(query)}`, lang)
   );
+}
+
+
+// ================================
+// CATEGORIES
+// ================================
+
+export async function getCategories() {
+  return request("/stories/categories");
 }
 
 
@@ -185,12 +202,16 @@ export async function searchStories(query) {
 // TAGS
 // ================================
 
-export async function getTags() {
-  return request("/tags/");
+export async function getTags(lang) {
+  return request(withLang("/tags/", lang));
 }
 
-export async function getStoriesByTag(slug) {
-  return request(`/tags/${slug}/stories`);
+export async function getAllTags() {
+  return request("/tags/all", { headers: authHeaders() });
+}
+
+export async function getStoriesByTag(slug, lang) {
+  return request(withLang(`/tags/${slug}/stories`, lang));
 }
 
 
@@ -198,12 +219,34 @@ export async function getStoriesByTag(slug) {
 // RESOURCES
 // ================================
 
-export async function getResources() {
-  return request("/resources/");
+export async function getResources(lang) {
+  return request(withLang("/resources/", lang));
+}
+
+export async function searchResources(query, lang) {
+  return request(
+    withLang(`/resources/search?q=${encodeURIComponent(query)}`, lang)
+  );
 }
 
 export function createResource(data) { return request("/resources/", { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); }
-export function createUploadedResource(file, resource) { const body = new FormData(); body.append("title", resource.title); body.append("description", resource.description); body.append("resource_type", resource.resource_type); body.append("resource", file); return request("/resources/upload", { method: "POST", headers: authHeaders(), body }); }
+
+// Upload several files at once; each file becomes its own resource record.
+export function batchUploadAdminResources(files, meta) {
+  const body = new FormData();
+  body.append("resource_type", meta.resource_type);
+  body.append("language", meta.language || "en");
+  body.append("published", String(meta.published ?? true));
+  files.forEach((file) => body.append("files", file));
+  return request("/admin/resources/upload-batch", { method: "POST", headers: authHeaders(), body });
+}
+
+// Approve/publish several stories or resources (or approve tags) in one action.
+export function approveAdminBatch(type, ids) {
+  return request(`/admin/${type}/approve`, { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+}
+
+export function createUploadedResource(file, resource) { const body = new FormData(); body.append("title", resource.title); body.append("description", resource.description); body.append("resource_type", resource.resource_type); body.append("language", resource.language || "en"); body.append("resource", file); return request("/resources/upload", { method: "POST", headers: authHeaders(), body }); }
 export function updateResource(id, data) { return request(`/resources/manage/${id}`, { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); }
 export function deleteResource(id) { return request(`/resources/manage/${id}`, { method: "DELETE", headers: authHeaders() }); }
 export function createTag(data) { return request("/tags/", { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }); }
@@ -221,6 +264,18 @@ export async function deleteAdminItem(type, id) {
   return request(`/admin/${type}/${id}`, { method: "DELETE", headers: authHeaders() });
 }
 
+export async function getTrash() {
+  return request("/admin/trash", { headers: authHeaders() });
+}
+
+export async function restoreTrashItem(type, id) {
+  return request(`/admin/trash/${type}/${id}/restore`, { method: "POST", headers: authHeaders() });
+}
+
+export async function permanentDeleteTrashItem(type, id) {
+  return request(`/admin/trash/${type}/${id}`, { method: "DELETE", headers: authHeaders() });
+}
+
 export async function createAdminItem(type, data) {
   return request(`/admin/${type}`, { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) });
 }
@@ -233,6 +288,13 @@ export async function uploadAdminImage(file) {
   const body = new FormData();
   body.append("image", file);
   const result = await request("/admin/upload-image", { method: "POST", headers: authHeaders(), body });
+  return getImageUrl(result.image_url);
+}
+
+export async function uploadStoryImage(file) {
+  const body = new FormData();
+  body.append("image", file);
+  const result = await request("/stories/upload-image", { method: "POST", headers: authHeaders(), body });
   return getImageUrl(result.image_url);
 }
 
@@ -262,6 +324,7 @@ export function createUploadedAdminResource(file, resource, images = []) {
   body.append("title", resource.title);
   body.append("description", resource.description);
   body.append("resource_type", resource.resource_type);
+  body.append("language", resource.language || "en");
   body.append("published", String(resource.published));
   body.append("resource", file);
   images.forEach((image) => body.append("carousel_images", image));
@@ -273,4 +336,12 @@ export function uploadResourceCarousel(resourceId, images) {
   const body = new FormData();
   images.forEach((image) => body.append("carousel_images", image));
   return request(`/admin/resources/${resourceId}/carousel`, { method: "POST", headers: authHeaders(), body });
+}
+
+export function submitContact(form) {
+  return request("/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+}
+
+export function submitFeedback(form) {
+  return request("/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
 }

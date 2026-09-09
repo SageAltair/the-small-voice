@@ -84,9 +84,10 @@ def migrate_legacy_schema():
             )
 
     migrations = {
-        "stories": {"owner_id": "INTEGER"},
-        "resources": {"owner_id": "INTEGER"},
-        "tags": {"owner_id": "INTEGER", "approved": "BOOLEAN NOT NULL DEFAULT TRUE"},
+        "stories": {"owner_id": "INTEGER", "language": "VARCHAR(10) NOT NULL DEFAULT 'en'", "deleted_at": "TIMESTAMP"},
+        "resources": {"owner_id": "INTEGER", "language": "VARCHAR(10) NOT NULL DEFAULT 'en'", "cover_url": "VARCHAR(500)", "deleted_at": "TIMESTAMP"},
+        "tags": {"owner_id": "INTEGER", "approved": "BOOLEAN NOT NULL DEFAULT TRUE", "language": "VARCHAR(10) NOT NULL DEFAULT 'en'", "deleted_at": "TIMESTAMP"},
+        "users": {"deleted_at": "TIMESTAMP"},
     }
     with engine.begin() as connection:
         for table, additions in migrations.items():

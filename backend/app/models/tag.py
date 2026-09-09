@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, Integer, String
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -34,3 +36,9 @@ class Tag(Base):
 
     owner_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
     approved: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    language: Mapped[str] = mapped_column(String(10), default="en", nullable=False)
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )

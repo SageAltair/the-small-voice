@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { BookOpen } from "lucide-react";
+import BrandMark from "../components/BrandMark";
 
 import { getCurrentUser, setAccessToken } from "../services/api";
 
@@ -40,7 +40,7 @@ export default function GoogleAuthCallback() {
     <main className="auth-shell">
       <section className="auth-card" aria-labelledby="google-title">
         <Link className="auth-brand" to="/">
-          <span className="auth-mark"><BookOpen size={20} /></span>
+          <BrandMark />
           <span>The Small Voice</span>
         </Link>
 

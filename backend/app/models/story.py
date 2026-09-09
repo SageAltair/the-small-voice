@@ -59,6 +59,12 @@ class Story(Base):
         nullable=False,
     )
 
+    language: Mapped[str] = mapped_column(
+        String(10),
+        default="en",
+        nullable=False,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -90,3 +96,8 @@ class Story(Base):
     )
 
     owner_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )

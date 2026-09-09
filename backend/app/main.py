@@ -15,6 +15,7 @@ from app.models.user import User
 from app.models.newsletter import NewsletterSubscription
 
 from app.routes.resources import router as resources_router
+from app.routes.contact import router as contact_router
 from app.routes.stories import router as stories_router
 from app.routes.tags import router as tags_router
 from app.routes.users import router as users_router
@@ -62,6 +63,7 @@ app.include_router(newsletter_router)
 app.include_router(stories_router)
 app.include_router(tags_router)
 app.include_router(resources_router)
+app.include_router(contact_router)
 
 
 @app.get("/", include_in_schema=False)

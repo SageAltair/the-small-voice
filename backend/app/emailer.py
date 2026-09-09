@@ -14,6 +14,7 @@ from email.utils import formataddr
 from html import escape
 
 from app.config import (
+    SMTP_FROM_EMAIL,
     SMTP_FROM_NAME,
     SMTP_HOST,
     SMTP_PASSWORD,
@@ -25,7 +26,13 @@ from app.config import (
 logger = logging.getLogger("app.emailer")
 
 
-def send_email(to_email: str, subject: str, html_body: str, text_body: str = "") -> bool:
+def send_email(
+    to_email: str,
+    subject: str,
+    html_body: str,
+    text_body: str = "",
+    reply_to: str | None = None,
+) -> bool:
     """Send an HTML e-mail via SMTP. Returns True when delivered."""
     if not SMTP_USER or not SMTP_PASSWORD:
         logger.warning(
@@ -37,21 +44,28 @@ def send_email(to_email: str, subject: str, html_body: str, text_body: str = "")
         return False
 
     message = MIMEMultipart("alternative")
-    message["From"] = formataddr((SMTP_FROM_NAME, SMTP_USER))
+    message["From"] = formataddr((SMTP_FROM_NAME, SMTP_FROM_EMAIL))
     message["To"] = to_email
     message["Subject"] = subject
+    if reply_to:
+        # Let the recipient hit "Reply" and answer the visitor directly.
+        message["Reply-To"] = reply_to
 
     if text_body:
         message.attach(MIMEText(text_body, "plain"))
     message.attach(MIMEText(html_body, "html"))
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
-        server.ehlo()
-        if SMTP_USE_TLS:
-            server.starttls()
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
             server.ehlo()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_USER, [to_email], message.as_string())
+            if SMTP_USE_TLS:
+                server.starttls()
+                server.ehlo()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_FROM_EMAIL, [to_email], message.as_string())
+    except Exception:
+        logger.exception("Failed to send e-mail to %s", to_email)
+        return False
 
     return True
 

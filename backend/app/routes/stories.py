@@ -30,6 +30,22 @@ UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads"
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
+@router.post("/upload-image")
+def upload_story_image(
+    image: UploadFile = File(...),
+    _: User = Depends(get_current_user),
+):
+    """Upload a cover image for an author's story. Any signed-in user may
+    upload; the returned path is stored on the story exactly like the admin
+    upload endpoint."""
+    if image.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported image type")
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    filename = f"{uuid4().hex}{Path(image.filename or 'image').suffix.lower()}"
+    (UPLOAD_DIR / filename).write_bytes(image.file.read())
+    return {"image_url": f"/uploads/{filename}"}
+
+
 def get_story_or_404(
     story_id: int,
     db: Session,
@@ -42,6 +58,7 @@ def get_story_or_404(
         )
         .where(
             Story.id == story_id,
+            Story.deleted_at.is_(None),
         )
     ).unique().scalar_one_or_none()
 
@@ -67,6 +84,7 @@ def create_story(
     published: bool = Form(False),
     submit_for_review: bool = Form(False),
     image_url: str | None = Form(None),
+    language: str = Form("en"),
     image: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -83,10 +101,9 @@ def create_story(
     if current_user.role == "admin" and not submit_for_review:
         published = True
     else:
-        # Authors submit work for review; they cannot publish directly or
-        # impersonate another contributor.
+        # Authors submit work for review; they cannot publish directly.
+        # The byline is now their own - they may choose the name shown.
         published = False
-        author = current_user.username
 
     if image and image.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
@@ -122,6 +139,7 @@ def create_story(
         author=author,
         category=category,
         published=published,
+        language=language,
         published_at=datetime.utcnow() if published else None,
         owner_id=current_user.id,
     )
@@ -138,22 +156,50 @@ def create_story(
     response_model=list[StoryResponse],
 )
 def get_stories(
+    lang: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    result = db.execute(
+    query = (
         select(Story)
         .options(
             joinedload(Story.tags),
         )
         .where(
             Story.published.is_(True),
+            Story.deleted_at.is_(None),
         )
         .order_by(
             Story.created_at.desc(),
         )
     )
+    if lang:
+        query = query.where(Story.language == lang)
+
+    result = db.execute(query)
 
     return result.unique().scalars().all()
+
+
+@router.get(
+    "/categories",
+    response_model=list[str],
+)
+def get_story_categories(
+    db: Session = Depends(get_db),
+):
+    """Distinct categories from published stories for filtering and navigation."""
+    categories = db.execute(
+        select(Story.category)
+        .where(
+            Story.published.is_(True),
+            Story.deleted_at.is_(None),
+            Story.category.isnot(None),
+            Story.category != "",
+        )
+        .distinct()
+        .order_by(Story.category)
+    ).scalars().all()
+    return categories
 
 
 @router.get(
@@ -162,17 +208,19 @@ def get_stories(
 )
 def search_stories(
     q: str,
+    lang: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     search_term = f"%{q}%"
 
-    result = db.execute(
+    query = (
         select(Story)
         .options(
             joinedload(Story.tags),
         )
         .where(
             Story.published.is_(True),
+            Story.deleted_at.is_(None),
             or_(
                 Story.title.ilike(search_term),
                 Story.content.ilike(search_term),
@@ -182,6 +230,10 @@ def search_stories(
             Story.created_at.desc(),
         )
     )
+    if lang:
+        query = query.where(Story.language == lang)
+
+    result = db.execute(query)
 
     return result.unique().scalars().all()
 
@@ -208,11 +260,15 @@ def comment_on_story(story_id: int, comment_data: CommentCreate, db: Session = D
 )
 def get_story(
     story_id: int,
+    lang: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     story = get_story_or_404(story_id, db)
 
     if not story.published:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    if lang and story.language != lang:
         raise HTTPException(status_code=404, detail="Story not found")
 
     return story
@@ -244,7 +300,6 @@ def update_story(
     )
 
     if current_user.role != "admin":
-        update_data.pop("author", None)
         update_data.pop("published", None)
         update_data.pop("featured", None)
         # Any author edit requires the administrator to approve it again.
@@ -286,7 +341,7 @@ def delete_story(
             detail="You cannot delete this story",
         )
 
-    db.delete(story)
+    story.deleted_at = datetime.utcnow()
     db.commit()
 
     return {
@@ -349,6 +404,7 @@ def get_related_stories(
         ge=1,
         le=20,
     ),
+    lang: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     story = get_story_or_404(
@@ -364,22 +420,29 @@ def get_related_stories(
     if not tag_ids:
         return []
 
-    result = db.execute(
+    conditions = [
+        Story.id != story_id,
+        Story.published.is_(True),
+        Story.deleted_at.is_(None),
+        Tag.id.in_(tag_ids),
+    ]
+    if lang:
+        conditions.append(Story.language == lang)
+
+    query = (
         select(Story)
         .options(
             joinedload(Story.tags),
         )
         .join(Story.tags)
-        .where(
-            Story.id != story_id,
-            Story.published.is_(True),
-            Tag.id.in_(tag_ids),
-        )
+        .where(*conditions)
         .distinct()
         .order_by(
             Story.created_at.desc(),
         )
-        .limit(limit),
+        .limit(limit)
     )
+
+    result = db.execute(query)
 
     return result.unique().scalars().all()

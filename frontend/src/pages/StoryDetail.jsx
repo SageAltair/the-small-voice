@@ -37,7 +37,7 @@ const storyFallbackImage = "https://images.unsplash.com/photo-1500534314209-a25d
 
 
 export default function StoryDetail() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { id } = useParams();
 
   const [story, setStory] =
@@ -56,25 +56,47 @@ export default function StoryDetail() {
 
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadStory() {
       setLoading(true);
       setError(null);
 
       try {
         const data =
-          await getStory(id);
+          await getStory(id, language);
 
-        setStory(data);
-        getRelatedStories(id).then(setRelatedStories).catch(() => setRelatedStories([]));
+        if (!cancelled) {
+          setStory(data);
+          getRelatedStories(id, language)
+            .then((related) => {
+              if (!cancelled) {
+                setRelatedStories(related);
+              }
+            })
+            .catch(() => {
+              if (!cancelled) {
+                setRelatedStories([]);
+              }
+            });
+        }
       } catch (err) {
-        setError(err.message);
+        if (!cancelled) {
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     loadStory();
-  }, [id]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, language]);
 
 
   if (loading) {
@@ -186,6 +208,18 @@ export default function StoryDetail() {
         </div>
       </article>
 
+      {relatedStories.length > 0 && (
+        <section className="related-stories">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">{t.explore}</p>
+              <h2>{t.discoverMoreStories}</h2>
+            </div>
+            <Link to="/stories" className="text-link">{t.viewAll} <span aria-hidden="true">→</span></Link>
+          </div>
+          <StoryList stories={relatedStories} />
+        </section>
+      )}
 
       <section className="next-step">
         <p className="eyebrow">
@@ -216,19 +250,6 @@ export default function StoryDetail() {
           </Link>
         </div>
       </section>
-
-      {relatedStories.length > 0 && (
-        <section className="related-stories">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">{t.explore}</p>
-              <h2>{t.discoverMoreStories}</h2>
-            </div>
-            <Link to="/stories" className="text-link">{t.viewAll} <span aria-hidden="true">→</span></Link>
-          </div>
-          <StoryList stories={relatedStories} />
-        </section>
-      )}
     </main>
   );
 }

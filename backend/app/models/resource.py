@@ -46,6 +46,17 @@ class Resource(Base):
         nullable=False,
     )
 
+    language: Mapped[str] = mapped_column(
+        String(10),
+        default="en",
+        nullable=False,
+    )
+
+    cover_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
@@ -58,3 +69,8 @@ class Resource(Base):
     )
 
     owner_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )

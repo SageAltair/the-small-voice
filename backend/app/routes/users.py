@@ -343,7 +343,7 @@ def get_me(
 def dashboard(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Return only the signed-in contributor's submissions."""
     return {
-        "stories": db.execute(select(Story).where(Story.owner_id == current_user.id).order_by(Story.created_at.desc())).scalars().all(),
-        "resources": db.execute(select(Resource).where(Resource.owner_id == current_user.id).order_by(Resource.created_at.desc())).scalars().all(),
-        "tags": db.execute(select(Tag).where(Tag.owner_id == current_user.id).order_by(Tag.name)).scalars().all(),
+        "stories": db.execute(select(Story).where(Story.owner_id == current_user.id, Story.deleted_at.is_(None)).order_by(Story.created_at.desc())).scalars().all(),
+        "resources": db.execute(select(Resource).where(Resource.owner_id == current_user.id, Resource.deleted_at.is_(None)).order_by(Resource.created_at.desc())).scalars().all(),
+        "tags": db.execute(select(Tag).where(Tag.owner_id == current_user.id, Tag.deleted_at.is_(None)).order_by(Tag.name)).scalars().all(),
     }

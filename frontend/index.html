@@ -8,6 +8,24 @@
       content="width=device-width, initial-scale=1.0"
     />
 
+    <link rel="icon" type="image/svg+xml" href="/small-voice-favicon.svg" />
+    <link rel="apple-touch-icon" href="/small-voice-dark-mode.svg" />
+    <meta name="theme-color" content="#f7f6f2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#191b19" media="(prefers-color-scheme: dark)" />
+
+    <script>
+      // Apply the saved (or system) theme before first paint so the correct
+      // logo variant and colours are shown immediately - no light-mode flash
+      // for dark-mode visitors. Mirrors the logic in Navbar.jsx.
+      (function () {
+        var saved = localStorage.getItem("theme");
+        var theme =
+          saved ||
+          (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+
     <meta
       name="description"
       content="The Small Voice - Stories, learning, growth and mission."

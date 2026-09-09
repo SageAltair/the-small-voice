@@ -13,6 +13,7 @@ from datetime import datetime
 from app.models.story import Story
 from app.models.tag import Tag
 from app.models.user import User
+from app.media import build_resource_cover
 from app.schemas.resource import ResourceCreate, ResourceResponse
 from app.schemas.tag import TagCreate, TagResponse
 
@@ -20,7 +21,7 @@ from app.schemas.tag import TagCreate, TagResponse
 router = APIRouter(prefix="/admin", tags=["Admin"])
 UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads"
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-MAX_RESOURCE_SIZE = 25 * 1024 * 1024
+MAX_RESOURCE_SIZE = 300 * 1024 * 1024
 MAX_CAROUSEL_IMAGES = 8
 
 
@@ -52,13 +53,15 @@ def upload_resource(resource: UploadFile = File(...), _: User = Depends(require_
     if not content:
         raise HTTPException(status_code=400, detail="The uploaded file is empty")
     if len(content) > MAX_RESOURCE_SIZE:
-        raise HTTPException(status_code=400, detail="Files must be 25 MB or smaller")
+        raise HTTPException(status_code=400, detail="Files must be 300 MB or smaller")
 
     UPLOAD_DIR.mkdir(exist_ok=True)
     filename = f"{uuid4().hex}{extension}"
-    (UPLOAD_DIR / filename).write_bytes(content)
+    file_path = UPLOAD_DIR / filename
+    file_path.write_bytes(content)
     return {
         "resource_url": f"/uploads/{filename}",
+        "cover_url": build_resource_cover(UPLOAD_DIR, file_path, extension),
         "filename": original_name.name,
     }
 
@@ -89,6 +92,7 @@ def create_uploaded_resource(
     description: str = Form(...),
     resource_type: str = Form(...),
     published: bool = Form(True),
+    language: str = Form("en"),
     resource: UploadFile = File(...),
     carousel_images: list[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
@@ -104,7 +108,7 @@ def create_uploaded_resource(
     if not content:
         raise HTTPException(status_code=400, detail="The uploaded file is empty")
     if len(content) > MAX_RESOURCE_SIZE:
-        raise HTTPException(status_code=400, detail="Files must be 25 MB or smaller")
+        raise HTTPException(status_code=400, detail="Files must be 300 MB or smaller")
 
     UPLOAD_DIR.mkdir(exist_ok=True)
     filename = f"{uuid4().hex}{extension}"
@@ -116,6 +120,7 @@ def create_uploaded_resource(
             title=title,
             description=description,
             resource_type=resource_type,
+            language=language,
             url=f"/uploads/{filename}",
             downloadable=True,
             published=published,
@@ -151,16 +156,110 @@ def add_resource_carousel_images(
     return resource
 
 
+@router.post("/resources/upload-batch", response_model=list[ResourceResponse])
+def batch_upload_resources(
+    resource_type: str = Form(...),
+    language: str = Form("en"),
+    published: bool = Form(True),
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Create one resource per uploaded file in a single operation.
+
+    Each file becomes its own resource record (title derived from the filename)
+    so several documents can be uploaded at once and displayed together.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="Select at least one file to upload")
+
+    created: list[Resource] = []
+    for upload in files:
+        original_name = Path(upload.filename or "resource")
+        extension = original_name.suffix.lower()
+        if not extension:
+            raise HTTPException(status_code=400, detail=f"'{original_name.name}' has no file extension")
+
+        content = upload.file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail=f"'{original_name.name}' is empty")
+        if len(content) > MAX_RESOURCE_SIZE:
+            raise HTTPException(status_code=400, detail=f"'{original_name.name}' must be 25 MB or smaller")
+
+        UPLOAD_DIR.mkdir(exist_ok=True)
+        filename = f"{uuid4().hex}{extension}"
+        file_path = UPLOAD_DIR / filename
+        file_path.write_bytes(content)
+
+        title = original_name.stem.replace("-", " ").replace("_", " ").strip() or original_name.stem
+        try:
+            item = Resource(
+                title=title,
+                description="",
+                resource_type=resource_type,
+                language=language,
+                url=f"/uploads/{filename}",
+                downloadable=True,
+                published=published,
+                cover_url=build_resource_cover(UPLOAD_DIR, file_path, extension),
+                owner_id=None,
+            )
+            db.add(item)
+            created.append(item)
+        except Exception:
+            file_path.unlink(missing_ok=True)
+            raise
+
+    db.commit()
+    for item in created:
+        db.refresh(item)
+    return created
+
+
+@router.post("/{item_type}/approve")
+def approve_items(
+    item_type: str,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Approve and publish several stories or resources (or approve tags) at once."""
+    models = {"stories": Story, "resources": Resource, "tags": Tag}
+    model = models.get(item_type)
+    if not model:
+        raise HTTPException(status_code=404, detail="Unknown item type")
+
+    ids = payload.get("ids") or []
+    if not ids:
+        raise HTTPException(status_code=400, detail="No items selected")
+
+    approved = 0
+    for item_id in ids:
+        item = db.get(model, item_id)
+        if not item:
+            continue
+        if item_type == "tags":
+            item.approved = True
+        else:
+            item.published = True
+            if item_type == "stories" and not item.published_at:
+                item.published_at = datetime.utcnow()
+        approved += 1
+
+    db.commit()
+    return {"message": f"Approved {approved} item(s)", "approved": approved}
+
+
 @router.get("/overview")
 def overview(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     return {
-        "stories": db.execute(select(Story).order_by(Story.created_at.desc())).scalars().all(),
-        "resources": db.execute(select(Resource).order_by(Resource.created_at.desc())).scalars().all(),
-        "tags": db.execute(select(Tag).order_by(Tag.name)).scalars().all(),
+        "stories": db.execute(select(Story).where(Story.deleted_at.is_(None)).order_by(Story.created_at.desc())).scalars().all(),
+        "resources": db.execute(select(Resource).where(Resource.deleted_at.is_(None)).order_by(Resource.created_at.desc())).scalars().all(),
+        "tags": db.execute(select(Tag).where(Tag.deleted_at.is_(None)).order_by(Tag.name)).scalars().all(),
         "users": [
             {"id": user.id, "username": user.username, "email": user.email,
              "role": user.role, "is_active": user.is_active}
-            for user in db.execute(select(User).order_by(User.created_at.desc())).scalars()
+            for user in db.execute(select(User).where(User.deleted_at.is_(None)).order_by(User.created_at.desc())).scalars()
         ],
     }
 
@@ -190,9 +289,44 @@ def delete_item(item_type: str, item_id: int, db: Session = Depends(get_db), _: 
     item = db.get(model, item_id) if model else None
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    item.deleted_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Item moved to trash"}
+
+
+@router.get("/trash")
+def get_trash(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    trash = {
+        "stories": db.execute(select(Story).where(Story.deleted_at.isnot(None)).order_by(Story.created_at.desc())).scalars().all(),
+        "resources": db.execute(select(Resource).where(Resource.deleted_at.isnot(None)).order_by(Resource.created_at.desc())).scalars().all(),
+        "tags": db.execute(select(Tag).where(Tag.deleted_at.isnot(None)).order_by(Tag.name)).scalars().all(),
+        "users": db.execute(select(User).where(User.deleted_at.isnot(None)).order_by(User.created_at.desc())).scalars().all(),
+    }
+    return trash
+
+
+@router.post("/trash/{item_type}/{item_id}/restore")
+def restore_item(item_type: str, item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    models = {"stories": Story, "resources": Resource, "tags": Tag, "users": User}
+    model = models.get(item_type)
+    item = db.get(model, item_id) if model else None
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.deleted_at = None
+    db.commit()
+    return {"message": "Item restored"}
+
+
+@router.delete("/trash/{item_type}/{item_id}")
+def permanent_delete(item_type: str, item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    models = {"stories": Story, "resources": Resource, "tags": Tag, "users": User}
+    model = models.get(item_type)
+    item = db.get(model, item_id) if model else None
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
     db.delete(item)
     db.commit()
-    return {"message": "Item deleted"}
+    return {"message": "Item permanently deleted"}
 
 
 @router.put("/{item_type}/{item_id}")

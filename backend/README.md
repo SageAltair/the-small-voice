@@ -90,10 +90,19 @@ sends verification e-mails from `thesmallvoice3@gmail.com`:
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=thesmallvoice3@gmail.com
-# Gmail App Password (16 characters) — not the normal Gmail password.
+# Gmail App Password (16 characters) — not the normal password.
 # Google Account -> Security -> 2-Step Verification -> App passwords
 SMTP_PASSWORD=replace-with-gmail-app-password
 SMTP_FROM_NAME=The Small Voice
+# Sender address (From header + SMTP envelope). Defaults to SMTP_USER, which
+# is what Gmail requires. Set it explicitly when the SMTP login is not a real
+# mailbox (e.g. SendGrid: SMTP_USER=apikey, or Brevo) using the sender
+# address verified in that provider's dashboard.
+SMTP_FROM_EMAIL=thesmallvoice3@gmail.com
+# Inbox that receives Contact-Us / feedback submissions. Defaults to
+# ADMIN_EMAIL when not set. Replies to a submission go to the visitor's
+# address via the Reply-To header.
+CONTACT_EMAIL=thesmallvoice3@gmail.com
 FRONTEND_BASE_URL=http://localhost:5173   # or https://your-frontend-domain.example.com
 ```
 

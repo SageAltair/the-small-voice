@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, BookOpen, LockKeyhole, Mail, RefreshCw, UserRound } from "lucide-react";
+import { ArrowRight, LockKeyhole, Mail, RefreshCw, UserRound } from "lucide-react";
+import BrandMark from "../components/BrandMark";
 
 import GoogleSignIn from "../components/GoogleSignIn";
 import { login, resendVerification } from "../services/api";
@@ -91,7 +92,7 @@ export default function Login() {
     <main className="auth-shell">
       <section className="auth-card" aria-labelledby="login-title">
         <Link className="auth-brand" to="/">
-          <span className="auth-mark"><BookOpen size={20} /></span>
+          <BrandMark />
           <span>The Small Voice</span>
         </Link>
 

@@ -1,14 +1,16 @@
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.auth.security import get_current_user
 from app.database import get_db
+from app.media import build_resource_cover
 from app.models.resource import Resource
 from app.models.user import User
 from app.schemas.resource import (
@@ -23,7 +25,7 @@ router = APIRouter(
 )
 
 UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads"
-MAX_RESOURCE_SIZE = 25 * 1024 * 1024
+MAX_RESOURCE_SIZE = 300 * 1024 * 1024
 
 
 @router.post("/upload", response_model=ResourceResponse)
@@ -31,6 +33,7 @@ def create_uploaded_resource(
     title: str = Form(...),
     description: str = Form(...),
     resource_type: str = Form(...),
+    language: str = Form("en"),
     resource: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -42,14 +45,15 @@ def create_uploaded_resource(
     if not content:
         raise HTTPException(status_code=400, detail="The uploaded file is empty")
     if len(content) > MAX_RESOURCE_SIZE:
-        raise HTTPException(status_code=400, detail="Files must be 25 MB or smaller")
+        raise HTTPException(status_code=400, detail="Files must be 300 MB or smaller")
     extension = Path(resource.filename or "resource").suffix.lower()
     if not extension:
         raise HTTPException(status_code=400, detail="Please upload a file with an extension")
     UPLOAD_DIR.mkdir(exist_ok=True)
     filename = f"{uuid4().hex}{extension}"
-    (UPLOAD_DIR / filename).write_bytes(content)
-    item = Resource(title=title, description=description, resource_type=resource_type, url=f"/uploads/{filename}", downloadable=True, published=False, owner_id=current_user.id)
+    file_path = UPLOAD_DIR / filename
+    file_path.write_bytes(content)
+    item = Resource(title=title, description=description, resource_type=resource_type, language=language, url=f"/uploads/{filename}", cover_url=build_resource_cover(UPLOAD_DIR, file_path, extension), downloadable=True, published=False, owner_id=current_user.id)
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -81,6 +85,7 @@ def create_resource(
         url=resource_data.url,
         downloadable=resource_data.downloadable,
         published=resource_data.published if current_user.role == "admin" else False,
+        language=resource_data.language,
         owner_id=current_user.id,
     )
 
@@ -96,17 +101,23 @@ def create_resource(
     response_model=list[ResourceResponse],
 )
 def get_resources(
+    lang: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    result = db.execute(
+    query = (
         select(Resource)
         .where(
             Resource.published.is_(True),
+            Resource.deleted_at.is_(None),
         )
         .order_by(
             Resource.created_at.desc(),
         )
     )
+    if lang:
+        query = query.where(Resource.language == lang)
+
+    result = db.execute(query)
 
     return result.scalars().all()
 
@@ -117,14 +128,16 @@ def get_resources(
 )
 def search_resources(
     q: str,
+    lang: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     search_term = f"%{q}%"
 
-    result = db.execute(
+    query = (
         select(Resource)
         .where(
             Resource.published.is_(True),
+            Resource.deleted_at.is_(None),
             or_(
                 Resource.title.ilike(search_term),
                 Resource.description.ilike(
@@ -136,6 +149,10 @@ def search_resources(
             Resource.created_at.desc(),
         )
     )
+    if lang:
+        query = query.where(Resource.language == lang)
+
+    result = db.execute(query)
 
     return result.scalars().all()
 
@@ -146,18 +163,24 @@ def search_resources(
 )
 def get_resources_by_type(
     resource_type: str,
+    lang: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    result = db.execute(
+    query = (
         select(Resource)
         .where(
             Resource.resource_type == resource_type,
             Resource.published.is_(True),
+            Resource.deleted_at.is_(None),
         )
         .order_by(
             Resource.created_at.desc(),
         )
     )
+    if lang:
+        query = query.where(Resource.language == lang)
+
+    result = db.execute(query)
 
     return result.scalars().all()
 
@@ -185,7 +208,8 @@ def delete_resource(resource_id: int, db: Session = Depends(get_db), current_use
         raise HTTPException(status_code=404, detail="Resource not found")
     if current_user.role != "admin" and resource.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="You cannot delete this resource")
-    db.delete(resource); db.commit()
+    resource.deleted_at = datetime.utcnow()
+    db.commit()
     return {"message": "Resource deleted"}
 
 
@@ -196,7 +220,7 @@ def download_resource(
 ):
     """Download a file uploaded through the resource manager."""
     resource = db.get(Resource, resource_id)
-    if not resource or not resource.published:
+    if not resource or not resource.published or resource.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Resource not found")
 
     uploaded_path = urlparse(resource.url).path

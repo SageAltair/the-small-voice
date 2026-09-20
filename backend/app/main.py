@@ -5,7 +5,13 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.database import Base, engine, ensure_admin_user, migrate_legacy_schema
+from app.database import (
+    Base,
+    engine,
+    ensure_admin_user,
+    migrate_legacy_schema,
+    migrate_resource_schema,
+)
 
 from app.models.resource import Resource
 from app.models.story import Story
@@ -21,7 +27,7 @@ from app.routes.tags import router as tags_router
 from app.routes.users import router as users_router
 from app.routes.admin import router as admin_router
 from app.routes.newsletter import router as newsletter_router
-from app.config import FRONTEND_ORIGINS
+from app.config import FRONTEND_ORIGIN_REGEX, FRONTEND_ORIGINS
 
 
 Base.metadata.create_all(
@@ -29,6 +35,7 @@ Base.metadata.create_all(
 )
 
 migrate_legacy_schema()
+migrate_resource_schema()
 ensure_admin_user()
 
 UPLOAD_DIR = Path(__file__).resolve().parents[1] / "uploads"
@@ -52,6 +59,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in FRONTEND_ORIGINS.split(",") if origin.strip()],
+    allow_origin_regex=FRONTEND_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

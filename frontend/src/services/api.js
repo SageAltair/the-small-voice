@@ -1,8 +1,28 @@
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? "http://127.0.0.1:8000" : "https://the-small-voice.onrender.com");
+// Resolve the base URL every API call is built from.
+//
+// 1. An explicit VITE_API_URL always wins. This is how a static hosting
+//    deployment points at the API (see render.yaml / the Render dashboard).
+// 2. A production build falls back to the deployed API.
+// 3. During development the app may be opened from localhost, 127.0.0.1, or
+//    this machine's LAN address (for example from a phone on the same
+//    Wi-Fi). Reuse the hostname the page was loaded from so all of those
+//    reach the API without editing a .env file every time the address
+//    changes.
+function resolveApiUrl() {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
 
-const API_BASE_URL = API_URL.replace(/\/$/, "");
+  if (!import.meta.env.DEV) {
+    return "https://the-small-voice.onrender.com";
+  }
+
+  const { protocol, hostname } = window.location;
+
+  return `${protocol}//${hostname}:8000`;
+}
+
+const API_BASE_URL = resolveApiUrl().replace(/\/$/, "");
 
 export function getImageUrl(url) {
   return url?.startsWith("/") ? `${API_BASE_URL}${url}` : url;

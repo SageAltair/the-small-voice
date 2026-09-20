@@ -34,6 +34,12 @@ class Tag(Base):
         back_populates="tags",
     )
 
+    resources = relationship(
+        "Resource",
+        secondary="resource_tags",
+        back_populates="tags",
+    )
+
     owner_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
     approved: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     language: Mapped[str] = mapped_column(String(10), default="en", nullable=False)

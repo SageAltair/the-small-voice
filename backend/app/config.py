@@ -55,6 +55,35 @@ FRONTEND_ORIGINS = os.getenv(
     "http://localhost:5173,http://127.0.0.1:5173,https://the-small-voice-frontend.onrender.com",
 )
 
+# Regular expression matched against the browser Origin header, in addition to
+# FRONTEND_ORIGINS (Starlette applies a full match, so no ^ $ anchors are
+# needed).
+#
+# Two things make a fixed origin list impractical during development:
+#
+#   1. The Vite dev server can be opened from another device on the same
+#      network - for example http://192.168.1.176:5173 from a phone - and that
+#      address changes whenever the machine rejoins the network.
+#   2. Vite serves on 5173 when it is free but walks up to 5174, 5175, ...
+#      whenever another instance already holds the port. Hard-coding :5173
+#      makes the browser's requests fail with "Failed to fetch" because the
+#      CORS preflight is rejected before the real request is ever sent.
+#
+# Accepting a loopback or private-range address on any dev-server port (5000 -
+# 5999) keeps local testing working without editing .env each time or caring
+# which port Vite settled on. Note that these origins are all dev machines;
+# FRONTEND_ORIGINS still governs public deployments.
+#
+# Set FRONTEND_ORIGIN_REGEX="" to disable this and rely on FRONTEND_ORIGINS
+# alone.
+FRONTEND_ORIGIN_REGEX = os.getenv(
+    "FRONTEND_ORIGIN_REGEX",
+    r"https?://(localhost|127\.0\.0\.1|\[::1\]"
+    r"|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r"|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}"
+    r"|192\.168\.\d{1,3}\.\d{1,3}):5\d{3}",
+) or None
+
 # ---------------------------------------------------------------------------
 # Google OAuth ("Continue with Google" sign-in)
 #

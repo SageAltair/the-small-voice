@@ -16,3 +16,9 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+
+# Uploads (gitignore in production; keep locally for development)
+# uploads/

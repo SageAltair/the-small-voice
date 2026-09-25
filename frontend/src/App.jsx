@@ -24,6 +24,8 @@ import Home from "./pages/Home";
 import Stories from "./pages/Stories";
 import StoryDetail from "./pages/StoryDetail";
 import Resources from "./pages/Resources";
+import Journeys from "./pages/Journeys";
+import PublicExperience from "./pages/PublicExperience";
 import TagStories from "./pages/TagStories";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
@@ -37,6 +39,7 @@ import NotFound from "./pages/NotFound";
 // Admin
 import Admin from "./pages/AdminConsole";
 import AdminStories from "./pages/AdminStories";
+import ExperienceBuilder from "./pages/ExperienceBuilder";
 
 // Language
 import { LanguageProvider } from "./i18n/LanguageContext";
@@ -92,6 +95,16 @@ function AppLayout() {
           <Route
             path="/resources"
             element={<Resources />}
+          />
+
+          <Route
+            path="/journeys"
+            element={<Journeys />}
+          />
+
+          <Route
+            path="/journeys/:slug"
+            element={<PublicExperience />}
           />
 
           <Route
@@ -166,6 +179,11 @@ function AppLayout() {
           <Route
             path="/admin/stories"
             element={<AdminStories />}
+          />
+
+          <Route
+            path="/admin/experience-builder"
+            element={<ExperienceBuilder />}
           />
 
 

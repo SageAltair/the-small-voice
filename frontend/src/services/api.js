@@ -365,3 +365,71 @@ export function submitContact(form) {
 export function submitFeedback(form) {
   return request("/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
 }
+
+// ================================
+// EXPERIENCE BUILDER API
+// ================================
+
+export const api = {
+  listExperiences: (params = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") query.set(key, value);
+    });
+    const suffix = query.toString();
+    return request(`/experiences/${suffix ? `?${suffix}` : ""}`, { headers: authHeaders() });
+  },
+  getExperience: (id) => request(`/experiences/${id}`, { headers: authHeaders() }),
+  createExperience: (data) => request(`/experiences/`, { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }),
+  updateExperience: (id, data) => request(`/experiences/${id}`, { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }),
+  deleteExperience: (id) => request(`/experiences/${id}`, { method: "DELETE", headers: authHeaders() }),
+  publishExperience: (id) => request(`/experiences/${id}/publish`, { method: "POST", headers: authHeaders() }),
+  unpublishExperience: (id) => request(`/experiences/${id}/unpublish`, { method: "POST", headers: authHeaders() }),
+  listSteps: (experienceId) => request(`/experiences/${experienceId}/steps`, { headers: authHeaders() }),
+  createStep: (experienceId, data) => request(`/experiences/${experienceId}/steps`, { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }),
+  updateStep: (stepId, data) => request(`/experiences/steps/${stepId}`, { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }),
+  deleteStep: (stepId) => request(`/experiences/steps/${stepId}`, { method: "DELETE", headers: authHeaders() }),
+  batchUpdateElements: (stepId, elements) => request(`/experiences/steps/${stepId}/elements`, { method: "PUT", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(elements) }),
+  listConnections: (experienceId) => request(`/experiences/${experienceId}/connections`, { headers: authHeaders() }),
+  createConnection: (experienceId, data) => request(`/experiences/${experienceId}/connections`, { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(data) }),
+  deleteConnection: (connectionId) => request(`/experiences/connections/${connectionId}`, { method: "DELETE", headers: authHeaders() }),
+
+  /**
+   * Persist the whole design in one request. Autosave uses this so a save
+   * either lands completely or not at all - there is no half-written state to
+   * find after a refresh.
+   */
+  saveDocument: (id, payload) =>
+    request(`/experiences/${id}/document`, {
+      method: "PUT",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  updateStep: (stepId, data) =>
+    request(`/experiences/steps/${stepId}`, {
+      method: "PUT",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }),
+
+  /** Upload an image for a canvas element; the design only stores the URL. */
+  uploadAsset: (file) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request("/experiences/assets", { method: "POST", headers: authHeaders(), body });
+  },
+
+  /* ---------- public (no auth) ---------- */
+
+  listPublicExperiences: (params = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") query.set(key, value);
+    });
+    const suffix = query.toString();
+    return request(`/experiences/public${suffix ? `?${suffix}` : ""}`);
+  },
+
+  getPublicExperience: (slug) => request(`/experiences/public/${encodeURIComponent(slug)}`),
+};

@@ -65,6 +65,10 @@ export default function Navbar() {
             {t.stories}
           </NavLink>
 
+          <NavLink to="/journeys" onClick={() => setMenuOpen(false)}>
+            Journeys
+          </NavLink>
+
           <NavLink to="/resources" onClick={() => setMenuOpen(false)}>
             {t.resources}
           </NavLink>

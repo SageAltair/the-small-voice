@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, CheckCircle2, ChevronRight, Eye, FolderOpen, ImagePlus, Library, LogOut, Pencil, Plus, RotateCcw, Search, Tags, Trash2, Users, X } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronRight, Eye, FolderOpen, ImagePlus, Library, LogOut, Pencil, Plus, RotateCcw, Search, Tags, Trash2, Users, X, Blocks } from "lucide-react";
 import RichTextEditor from "../components/RichTextEditor";
 import BrandMark from "../components/BrandMark";
 import SubmissionReview from "../components/SubmissionReview";
 import { addStoryTags, createAdminItem, createStory, createUploadedAdminResource, deleteAdminItem, getAdminData, getTrash, login, permanentDeleteTrashItem, restoreTrashItem, updateAdminItem, uploadAdminImage, uploadAdminResource, uploadResourceCarousel } from "../services/api";
+import { api } from "../services/api";
 
 const sections = [
   { id: "stories", label: "Stories", icon: BookOpen },
@@ -12,12 +13,15 @@ const sections = [
   { id: "tags", label: "Topics", icon: Tags },
   { id: "users", label: "People", icon: Users },
   { id: "trash", label: "Trash", icon: Trash2 },
+  // The builder is a full-screen authoring tool, not a CMS list section, so
+  // it navigates to its own route instead of switching the panel below.
+  { id: "experiences", label: "Experience Builder", icon: Blocks, href: "/admin/experience-builder" },
 ];
 const storyBlank = { title: "", slug: "", author: "", category: "", content: "", image_url: "", published: true, featured: false, tags: [] };
 const resourceBlank = { title: "", description: "", resource_type: "", url: "", downloadable: false, published: true };
 const tagBlank = { name: "", slug: "" };
 const slugify = (text) => text.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-const singularLabel = (type) => ({ stories: "story", approvals: "story", resources: "resource", tags: "topic", users: "person", trash: "item" }[type] || type);
+const singularLabel = (type) => ({ stories: "story", approvals: "story", resources: "resource", tags: "topic", users: "person", trash: "item", experiences: "experience" }[type] || type);
 
 export default function AdminConsole() {
   const [data, setData] = useState(null);
@@ -32,6 +36,7 @@ export default function AdminConsole() {
   const [busy, setBusy] = useState(false);
   const [trash, setTrash] = useState(null);
   const [reviewItem, setReviewItem] = useState(null);
+  const [experiences, setExperiences] = useState(null);
 
   const refresh = async () => {
     // Always reload the main lists AND the trash together so counts/rows
@@ -43,6 +48,11 @@ export default function AdminConsole() {
     } catch (err) {
       // Data still loaded; trash badge just stays as it was.
     }
+    try {
+      setExperiences(await api.listExperiences());
+    } catch (err) {
+      // Experiences may not be accessible; that's okay.
+    }
   };
 
   const loadTrash = async () => {
@@ -50,6 +60,14 @@ export default function AdminConsole() {
       setTrash(await getTrash());
     } catch (err) {
       showError(err);
+    }
+  };
+
+  const loadExperiences = async () => {
+    try {
+      setExperiences(await api.listExperiences());
+    } catch (err) {
+      // Silently fail - experiences list is not critical
     }
   };
 
@@ -224,13 +242,16 @@ export default function AdminConsole() {
     // The Trash tab renders from its own `trash` state, not from data[section].
     // Guard here so switching to Trash never touches data["trash"] (undefined).
     if (section === "trash") return [];
+    // The Experience Builder has no `data` slice (it keeps its own state and
+    // owns a route), so fall back to an empty list rather than crashing on
+    // `undefined.filter` - that took the whole admin workspace down before.
     const source =
       section === "approvals"
         ? [
             ...data.stories.filter((story) => !story.published).map((item) => ({ ...item, _type: "stories" })),
             ...data.resources.filter((resource) => !resource.published).map((item) => ({ ...item, _type: "resources" })),
           ]
-        : data[section];
+        : (data[section] || []);
     const term = query.toLowerCase();
     return source.filter(
       (item) =>
@@ -285,30 +306,50 @@ export default function AdminConsole() {
         </a>
         <span className="cms-nav-label">Workspace</span>
         <nav className="cms-nav">
-          {sections.map(({ id, label, icon: TabIcon }) => (
-            <button
-              key={id}
-              className={section === id ? "active" : ""}
-              onClick={() => {
-                setSection(id);
-                setQuery("");
-                close();
-                if (id === "trash") loadTrash();
-              }}
-            >
-              <TabIcon size={18} />
-              <span>{label}</span>
-              <b>
-                {id === "approvals"
-                  ? pendingCount
-                  : id === "trash"
-                    ? trash
-                      ? trash.stories.length + trash.resources.length + trash.tags.length + trash.users.length
-                      : 0
-                    : data[id].length}
-              </b>
-            </button>
-          ))}
+          {sections.map(({ id, label, icon: TabIcon, href }) => {
+            const count =
+              id === "approvals" ? pendingCount
+                : id === "trash"
+                  ? trash
+                    ? trash.stories.length + trash.resources.length + trash.tags.length + trash.users.length
+                    : 0
+                  : id === "experiences"
+                    ? experiences?.length || 0
+                    : data[id]?.length || 0;
+
+            const inner = (
+              <>
+                <TabIcon size={18} />
+                <span>{label}</span>
+                <b>{count}</b>
+              </>
+            );
+
+            // Entries that own a route are real links; the rest switch panels.
+            if (href) {
+              return (
+                <a key={id} className={section === id ? "active" : ""} href={href}>
+                  {inner}
+                </a>
+              );
+            }
+
+            return (
+              <button
+                key={id}
+                className={section === id ? "active" : ""}
+                onClick={() => {
+                  setSection(id);
+                  setQuery("");
+                  close();
+                  if (id === "trash") loadTrash();
+                  if (id === "experiences") loadExperiences();
+                }}
+              >
+                {inner}
+              </button>
+            );
+          })}
         </nav>
         <div className="cms-sidebar-footer">
           <a href="/" target="_blank" rel="noreferrer">

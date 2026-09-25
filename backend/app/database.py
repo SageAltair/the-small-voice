@@ -193,6 +193,86 @@ def migrate_legacy_schema():
                 ))
 
 
+def migrate_experience_schema():
+    """Reconcile the builder's tables with the models.
+
+    ``create_all`` only creates *missing tables*; it never adds columns to a
+    table that already exists. These tables were introduced before the current
+    model was finalised, so a live database can be missing columns the ORM
+    selects (which fails at runtime with "column does not exist", not at boot).
+
+    Rather than hard-coding a list, this walks the model metadata for every
+    builder table and adds whatever the database is missing. New columns are
+    created nullable and then backfilled from the model's own default, so an
+    existing production row is never lost or rejected.
+    """
+    from app.models.experience import (
+        Connection,
+        Element,
+        ElementAction,
+        Experience,
+        ExperienceVersion,
+        Step,
+    )
+
+    tables = {
+        "experiences": Experience.__table__,
+        "steps": Step.__table__,
+        "elements": Element.__table__,
+        "element_actions": ElementAction.__table__,
+        "connections": Connection.__table__,
+        "experience_versions": ExperienceVersion.__table__,
+    }
+
+    inspector = inspect(engine)
+    dialect = engine.dialect
+
+    with engine.begin() as connection:
+        for table_name, table in tables.items():
+            if not inspector.has_table(table_name):
+                # create_all will make it on the next boot.
+                continue
+
+            existing = {column["name"] for column in inspector.get_columns(table_name)}
+
+            for column in table.columns:
+                if column.name in existing:
+                    continue
+
+                # Add nullable first: a NOT NULL column with no default would
+                # be rejected outright on a table that already holds rows.
+                column_type = column.type.compile(dialect=dialect)
+                try:
+                    connection.execute(
+                        text(f'ALTER TABLE "{table_name}" ADD COLUMN "{column.name}" {column_type}')
+                    )
+                except Exception:
+                    # A concurrent process may have added it already.
+                    continue
+
+                # Backfill the model's own default where we can derive one.
+                default = getattr(column, "server_default", None)
+                fallback = getattr(column, "default", None)
+                value = None
+                scalar = getattr(fallback, "arg", None)
+                if isinstance(scalar, (int, float, str, bool)):
+                    value = scalar
+                elif default is not None and getattr(default, "arg", None) is not None:
+                    value = default.arg
+
+                if value is not None:
+                    literal = "'" + str(value).replace("'", "''") + "'" if isinstance(value, str) else str(value)
+                    try:
+                        connection.execute(
+                            text(
+                                f'UPDATE "{table_name}" SET "{column.name}" = {literal} '
+                                f'WHERE "{column.name}" IS NULL'
+                            )
+                        )
+                    except Exception:
+                        pass
+
+
 def migrate_resource_schema():
     """Bring the existing ``resources`` table up to the publishing schema.
 

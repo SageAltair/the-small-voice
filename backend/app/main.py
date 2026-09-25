@@ -9,6 +9,7 @@ from app.database import (
     Base,
     engine,
     ensure_admin_user,
+    migrate_experience_schema,
     migrate_legacy_schema,
     migrate_resource_schema,
 )
@@ -27,6 +28,7 @@ from app.routes.tags import router as tags_router
 from app.routes.users import router as users_router
 from app.routes.admin import router as admin_router
 from app.routes.newsletter import router as newsletter_router
+from app.routes.experiences import router as experiences_router
 from app.config import FRONTEND_ORIGIN_REGEX, FRONTEND_ORIGINS
 
 
@@ -36,6 +38,7 @@ Base.metadata.create_all(
 
 migrate_legacy_schema()
 migrate_resource_schema()
+migrate_experience_schema()
 ensure_admin_user()
 
 UPLOAD_DIR = Path(__file__).resolve().parents[1] / "uploads"
@@ -72,6 +75,7 @@ app.include_router(stories_router)
 app.include_router(tags_router)
 app.include_router(resources_router)
 app.include_router(contact_router)
+app.include_router(experiences_router)
 
 
 @app.get("/", include_in_schema=False)

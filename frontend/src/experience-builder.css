@@ -296,6 +296,45 @@
 .eb-tool svg { flex: 0 0 auto; }
 .eb-tool span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------------- floating context toolbar ----------------
+   Sits just above the selected element, the way Figma/Canva surface the
+   handful of actions you reach for most. Buttons must opt back into pointer
+   events because the selection chrome is pointer-events: none. */
+
+.eb-floatbar {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  transform: translateX(-50%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgb(15 23 42 / 18%);
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.eb-floatbar button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.eb-floatbar button:hover { background: var(--surface-muted); color: var(--text); }
+.eb-floatbar button.is-danger:hover { background: #fee2e2; color: #b91c1c; }
+.eb-floatbar__sep { width: 1px; height: 15px; margin: 0 2px; background: var(--line); }
+
 .eb-glyph {
   display: inline-grid;
   min-width: 15px;
@@ -433,34 +472,66 @@
 
 .exr-page { position: relative; overflow: hidden; }
 .exr-element { position: absolute; display: block; box-sizing: border-box; }
-.exr-page--edit .exr-element { cursor: move; }
-.exr-element.is-locked { cursor: not-allowed; }
+/* Editing mode: the whole element is the drag handle, so grabbing it anywhere
+   moves it. Preview mode leaves normal link/button behaviour untouched. */
+.exr-page--edit .exr-element { cursor: grab; touch-action: none; }
+.exr-page--edit .exr-element:active { cursor: grabbing; }
+.exr-page--edit .exr-element.is-locked { cursor: not-allowed; }
 
+/* Text fills the element box, wraps naturally, and is never cut off: the
+   editor measures the text and grows the box to fit, so `overflow` stays
+   visible as a safety net while a measurement pass catches up. */
 .exr-text {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   margin: 0;
-  overflow: hidden;
+  overflow: visible;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
+
+/* Content that should also grow to fit rather than clip. */
+.exr-autofit {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: visible;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .exr-media { display: block; width: 100%; height: 100%; user-select: none; }
 .exr-audio { width: 100%; height: 100%; }
 .exr-embed { display: block; width: 100%; height: 100%; border: 0; }
 
+/* Buttons fill the element box so the frame you see is the frame you resize,
+   with a minimum touch target and padding that never collapses. */
 .exr-button {
-  display: inline-flex;
-  width: auto;
-  max-width: 100%;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 40px;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+  padding: 12px 22px;
   border: 0;
   font-family: "Poppins", system-ui, sans-serif;
+  line-height: 1.25;
+  text-align: center;
+  text-wrap: balance;
   cursor: pointer;
+  overflow-wrap: break-word;
+  transition: filter 120ms ease, transform 120ms ease;
 }
 
-.exr-page--edit .exr-button { cursor: move; }
+.exr-page--view .exr-button:hover { filter: brightness(1.08); }
+.exr-page--view .exr-button:active { transform: translateY(1px); }
+.exr-page--view .exr-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.exr-page--edit .exr-button { cursor: grab; }
 .exr-link { display: inline-block; font-family: "Poppins", system-ui, sans-serif; }
 .exr-field { width: 100%; height: 100%; font-family: "Poppins", system-ui, sans-serif; }
 
@@ -471,7 +542,7 @@
   font-family: "Poppins", system-ui, sans-serif;
 }
 
-.exr-question { display: grid; height: 100%; gap: 10px; align-content: start; }
+.exr-question { display: grid; gap: 10px; align-content: start; }
 .exr-question-text { margin: 0; font-family: "Newsreader", Georgia, serif; }
 .exr-options { display: flex; flex-wrap: wrap; gap: 6px; }
 
@@ -491,10 +562,11 @@
 .exr-quote,
 .exr-scripture {
   display: grid;
-  height: 100%;
   gap: 8px;
   align-content: center;
   margin: 0;
+  overflow-wrap: break-word;
+}
 
 /* ---------------- selection chrome ---------------- */
 
@@ -503,9 +575,24 @@
 .eb-selection__outline {
   position: absolute;
   inset: 0;
-  border: 1.5px solid #24534a;
+  border: 1.5px solid var(--accent);
   pointer-events: auto;
   cursor: move;
+}
+
+/* The page itself is the artboard - frame it so the design reads as a canvas
+   rather than as page content. */
+.eb-page-frame {
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px rgb(15 23 42 / 10%),
+    0 18px 48px rgb(15 23 42 / 22%);
+}
+
+.eb-page-frame.is-dropping {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 18px 48px rgb(15 23 42 / 22%);
 }
 
 .eb-selection.is-locked .eb-selection__outline {
@@ -813,14 +900,6 @@
 .eb-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .eb-align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .eb-media-row { display: flex; gap: 5px; }
-
-  font-family: "Newsreader", Georgia, serif;
-}
-
-.exr-quote p,
-.exr-scripture p { margin: 0; }
-.exr-quote cite,
-.exr-scripture figcaption { font-size: 0.7em; opacity: 0.7; }
 
 .exr-divider,
 .exr-shape,

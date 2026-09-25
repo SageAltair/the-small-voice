@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertCircle, ArrowDown, ArrowUp, Check, ChevronLeft, Copy, Eye,
+  AlertCircle, ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Check, ChevronLeft, Copy, Eye,
   Grid3x3, Image as ImageIcon, Loader2, Lock, Maximize2, Plus,
   Redo2, RotateCw, Save, Send, Trash2, Undo2, Unlock, ZoomIn, ZoomOut,
 } from "lucide-react";
@@ -364,7 +364,7 @@ function PageSettings({ page, onSettings }) {
 /* Selection chrome & preview                                          */
 /* ------------------------------------------------------------------ */
 
-function SelectionChrome({ element, selected, onDrag, onResize, onRotate }) {
+function SelectionChrome({ element, selected, onDrag, onResize, onRotate, actions }) {
   if (!selected) return null;
   if (element.isLocked) {
     return (
@@ -391,6 +391,37 @@ function SelectionChrome({ element, selected, onDrag, onResize, onRotate }) {
           onPointerDown={(event) => onResize(event, handle)}
         />
       ))}
+      {actions ? (
+        <div
+          className="eb-floatbar"
+          role="toolbar"
+          aria-label="Element actions"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button type="button" title="Bring to front" aria-label="Bring to front" onClick={actions.toFront}>
+            <ArrowUpToLine size={13} />
+          </button>
+          <button type="button" title="Send to back" aria-label="Send to back" onClick={actions.toBack}>
+            <ArrowDownToLine size={13} />
+          </button>
+          <span className="eb-floatbar__sep" />
+          <button type="button" title="Duplicate (Ctrl+D)" aria-label="Duplicate" onClick={actions.duplicate}>
+            <Copy size={13} />
+          </button>
+          <button
+            type="button"
+            title={element.isLocked ? "Unlock" : "Lock"}
+            aria-label={element.isLocked ? "Unlock" : "Lock"}
+            onClick={actions.toggleLock}
+          >
+            {element.isLocked ? <Unlock size={13} /> : <Lock size={13} />}
+          </button>
+          <span className="eb-floatbar__sep" />
+          <button type="button" title="Delete" aria-label="Delete" className="is-danger" onClick={actions.remove}>
+            <Trash2 size={13} />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -812,6 +843,15 @@ export default function ExperienceBuilder() {
   const saveTimer = useRef(null);
   const dirtyRef = useRef(false);
   const saveSeq = useRef(0);
+  // Mirrors `doc` so synchronous edits (every pointer move of a drag) can be
+  // chained without waiting for a re-render. React state alone is one render
+  // behind, which made a drag compute against stale data and then snap back.
+  const docRef = useRef(null);
+
+  const applyDoc = useCallback((value) => {
+    docRef.current = value;
+    setDoc(value);
+  }, []);
 
   const page = doc?.pages[pageIndex] || null;
   const selected = useMemo(
@@ -837,28 +877,33 @@ export default function ExperienceBuilder() {
     const history = historyRef.current;
     if (!history) return;
 
-    const next = typeof updater === "function" ? updater(history.present) : updater;
+    // Base every edit on the LIVE document, not `history.present`. During a
+    // drag the pointer fires many edits per render; `present` only catches up
+    // on commit, so deriving from it made each move restart from the
+    // pre-drag geometry and the element snapped back on release.
+    const base = docRef.current || history.present;
+    const next = typeof updater === "function" ? updater(base) : updater;
 
     if (transaction === "begin") {
-      history.begin(history.present);
-      setDoc(next);
+      history.begin(base);
+      applyDoc(next);
     } else if (transaction === "commit") {
       history.commit(next);
-      setDoc(history.present);
+      applyDoc(history.present);
       syncHistory();
     } else if (transaction === "abort") {
       history.abort(next);
-      setDoc(history.present);
+      applyDoc(history.present);
     } else {
       history.record(next);
-      setDoc(history.present);
+      applyDoc(history.present);
       syncHistory();
     }
 
     if (silent) return;
     dirtyRef.current = true;
     setStatus("dirty");
-  }, [syncHistory]);
+  }, [applyDoc, syncHistory]);
 
   const updateCurrentPage = useCallback((updater, options) => {
     if (!page) return;
@@ -923,7 +968,7 @@ export default function ExperienceBuilder() {
       if (!experienceId) {
         const initial = { ...buildDocument(null), pages: [createPage({ title: "Page 1" })] };
         historyRef.current = createHistory(initial, { limit: HISTORY_LIMIT });
-        setDoc(initial);
+        applyDoc(initial);
         setShowCreate(true);
         setLoading(false);
         syncHistory();
@@ -935,7 +980,7 @@ export default function ExperienceBuilder() {
         if (cancelled) return;
         const document = buildDocument(data);
         historyRef.current = createHistory(document, { limit: HISTORY_LIMIT });
-        setDoc(document);
+        applyDoc(document);
         setPageIndex(0);
         setSelectedIds([]);
         dirtyRef.current = false;
@@ -954,6 +999,23 @@ export default function ExperienceBuilder() {
 
 
   /* ---------------- element operations ---------------- */
+
+  /**
+   * Grow text boxes to the height their content actually needs.
+   *
+   * The renderer measures the laid-out text and hands back a map of
+   * id -> required height. Applying it keeps long copy fully visible on the
+   * canvas, in preview and once published, and the corrected height is part of
+   * the saved document.
+   */
+  const applyTextGrowth = useCallback((growth) => {
+    updateCurrentPage((p) => ({
+      ...p,
+      elements: p.elements.map((element) => (
+        growth.has(element.id) ? { ...element, height: growth.get(element.id) } : element
+      )),
+    }));
+  }, [updateCurrentPage]);
 
   // Step used to offset consecutive elements that are added from the tool
   // panel (no drop point). Small enough to stay on screen, large enough that
@@ -1115,8 +1177,26 @@ export default function ExperienceBuilder() {
     );
 
     dragRef.current = { kind: "move", ids, start: toPagePoint(event), origin, moved: false };
+    // Capture on the viewport (an ancestor) so every subsequent move still
+    // reaches the move handler even when the cursor outruns the element.
+    try { viewportRef.current?.setPointerCapture?.(event.pointerId); } catch { /* not capturable */ }
     updateCurrentPage((p) => ({ ...p }), { transaction: "begin" });
   }, [page, selectedIds, toPagePoint, updateCurrentPage]);
+
+  /**
+   * Press anywhere on an element and drag it in the same gesture.
+   *
+   * Previously the canvas only started a drag from the selection outline,
+   * which meant every move needed a separate click first to select. A modifier
+   * click still toggles multi-selection instead of dragging.
+   */
+  const onElementPointerDown = useCallback((element, event) => {
+    if (event.shiftKey || event.ctrlKey || event.metaKey || element.isLocked) {
+      selectElement(element, event);
+      return;
+    }
+    beginDrag(event, element);
+  }, [beginDrag, selectElement]);
 
   const beginResize = useCallback((event, element, handle) => {
     if (element.isLocked || !page) return;
@@ -1138,6 +1218,7 @@ export default function ExperienceBuilder() {
       moved: false,
     };
 
+    try { viewportRef.current?.setPointerCapture?.(event.pointerId); } catch { /* not capturable */ }
     updateCurrentPage((p) => ({ ...p }), { transaction: "begin" });
   }, [page, selected, toPagePoint, updateCurrentPage]);
 
@@ -1185,6 +1266,9 @@ export default function ExperienceBuilder() {
         : { box: bounds, guides: [] };
 
       setGuides(snapped.guides);
+      // `offset` is the TOTAL translation for this frame (pointer delta plus
+      // any snap correction). Adding the snap delta on top of `dx` applied the
+      // movement twice, so every drag overshot by 2x.
       const offsetX = snapped.box.left - lead.x;
       const offsetY = snapped.box.top - lead.y;
 
@@ -1193,7 +1277,7 @@ export default function ExperienceBuilder() {
         elements: p.elements.map((element) => {
           const origin = drag.origin.get(element.id);
           if (!origin) return element;
-          return { ...element, x: Math.round(origin.x + dx + offsetX), y: Math.round(origin.y + dy + offsetY) };
+          return { ...element, x: Math.round(origin.x + offsetX), y: Math.round(origin.y + offsetY) };
         }),
       }), { transaction: "begin" });
       return;
@@ -1260,8 +1344,11 @@ export default function ExperienceBuilder() {
     }), { transaction: "begin" });
   }, [page, toPagePoint, snapEnabled, updateCurrentPage, patchElements]);
 
-  const endDrag = useCallback(() => {
+  const endDrag = useCallback((event) => {
     const drag = dragRef.current;
+    try {
+      if (event?.pointerId != null) viewportRef.current?.releasePointerCapture?.(event.pointerId);
+    } catch { /* already released */ }
     if (!drag) return;
     dragRef.current = null;
     setGuides([]);
@@ -1295,9 +1382,9 @@ export default function ExperienceBuilder() {
     });
   }, [onPointerMove]);
 
-  const endPan = useCallback(() => {
+  const endPan = useCallback((event) => {
     panRef.current = null;
-    endDrag();
+    endDrag(event);
   }, [endDrag]);
 
 
@@ -1306,7 +1393,7 @@ export default function ExperienceBuilder() {
   const doUndo = useCallback(() => {
     const history = historyRef.current;
     if (!history?.canUndo) return;
-    setDoc(history.undo());
+    applyDoc(history.undo());
     setSelectedIds([]);
     dirtyRef.current = true;
     setStatus("dirty");
@@ -1316,7 +1403,7 @@ export default function ExperienceBuilder() {
   const doRedo = useCallback(() => {
     const history = historyRef.current;
     if (!history?.canRedo) return;
-    setDoc(history.redo());
+    applyDoc(history.redo());
     setSelectedIds([]);
     dirtyRef.current = true;
     setStatus("dirty");
@@ -1670,8 +1757,9 @@ export default function ExperienceBuilder() {
                     page={page}
                     mode="edit"
                     selectedIds={selectedIds}
-                    onSelect={selectElement}
+                    onSelect={onElementPointerDown}
                     onRequestMedia={(element) => setMediaFor(element)}
+                    onTextResize={applyTextGrowth}
                     renderChrome={(element) => (
                       <SelectionChrome
                         element={element}
@@ -1679,6 +1767,13 @@ export default function ExperienceBuilder() {
                         onDrag={(event) => beginDrag(event, element)}
                         onResize={(event, handle) => beginResize(event, element, handle)}
                         onRotate={(event) => beginRotate(event, element)}
+                        actions={{
+                          toFront: () => changeZ("front"),
+                          toBack: () => changeZ("back"),
+                          duplicate: () => duplicateElements([element.id]),
+                          toggleLock: () => patchElements([element.id], { isLocked: !element.isLocked }),
+                          remove: () => removeElements([element.id]),
+                        }}
                       />
                     )}
                   />

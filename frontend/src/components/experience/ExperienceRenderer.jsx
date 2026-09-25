@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { resolveEmbed, EMBED_IFRAME, isSafeMediaUrl } from "../../experience/embedUtils";
 import { getImageUrl } from "../../services/api";
 import { pageHeight } from "../../experience/designModel";
@@ -30,7 +30,10 @@ export function styleToCss(style = {}, extra = {}) {
     boxShadow: "boxShadow",
     border: "border",
   };
-  const unitKeys = ["fontSize", "lineHeight", "letterSpacing", "borderRadius", "padding"];
+  // These style values are lengths and need a px unit. `lineHeight` is
+  // deliberately absent: it is a unitless ratio, and turning 1.1 into "1.1px"
+  // collapses the line box and made every text measurement wrong.
+  const unitKeys = ["fontSize", "letterSpacing", "borderRadius", "padding"];
 
   Object.entries(style || {}).forEach(([key, value]) => {
     if (value === null || value === undefined || value === "") return;
@@ -76,7 +79,7 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
     case "heading":
     case "text": {
       const Tag = type === "heading" ? "h2" : "p";
-      return <Tag className="exr-text" data-editable="true" style={styleToCss(style)}>{content.text || ""}</Tag>;
+      return <Tag className="exr-text exr-autofit" data-editable="true" style={styleToCss(style)}>{content.text || ""}</Tag>;
     }
 
     case "image":
@@ -204,7 +207,7 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
 
     case "question":
       return (
-        <div className="exr-question" style={styleToCss(style)}>
+        <div className="exr-question exr-autofit" style={styleToCss(style)}>
           <p className="exr-question-text">{content.text || "Question"}</p>
           <div className="exr-options">
             {(content.options || []).map((option, index) => (
@@ -226,7 +229,7 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
 
     case "quote":
       return (
-        <blockquote className="exr-quote" style={styleToCss(style)}>
+        <blockquote className="exr-quote exr-autofit" style={styleToCss(style)}>
           <p>{content.text || "Quote"}</p>
           {content.author ? <cite>{content.author}</cite> : null}
         </blockquote>
@@ -234,7 +237,7 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
 
     case "scripture":
       return (
-        <figure className="exr-scripture" style={styleToCss(style)}>
+        <figure className="exr-scripture exr-autofit" style={styleToCss(style)}>
           <p>{content.text || "Scripture"}</p>
           {content.reference ? <figcaption>{content.reference}</figcaption> : null}
         </figure>
@@ -279,6 +282,7 @@ export default function ExperienceRenderer({
   onSelect,
   onAction,
   onRequestMedia,
+  onTextResize,
   renderChrome,
   className = "",
   style: wrapperStyle,
@@ -288,9 +292,41 @@ export default function ExperienceRenderer({
   const height = useMemo(() => (page ? pageHeight(page) : 0), [page]);
   const selection = new Set(selectedIds);
   const elements = (page?.elements || []).filter((element) => element.isVisible !== false);
+  const pageRef = useRef(null);
+  const fittedRef = useRef("");
+
+  // Text boxes are sized by their content, not by a stale default height.
+  // After paint we measure each wrapping element and grow the frame to match,
+  // which is what keeps long copy from being cut off on the canvas, in
+  // preview, and on the published page. The edit pass reports the corrected
+  // heights back so the new geometry is what gets saved.
+  useEffect(() => {
+    const root = pageRef.current;
+    if (!root) return;
+
+    const growth = new Map();
+    root.querySelectorAll(".exr-element").forEach((node) => {
+      const target = node.querySelector(".exr-autofit");
+      if (!target) return;
+      // `scrollHeight`/`offsetHeight` are layout pixels and ignore the canvas
+      // zoom transform, so the two are directly comparable. Using
+      // getBoundingClientRect here would mix scaled and unscaled units.
+      const needed = Math.ceil(target.scrollHeight);
+      const current = node.offsetHeight;
+      if (needed > current + 1) growth.set(node.dataset.elementId, needed);
+    });
+
+    if (!growth.size) return;
+    const signature = Array.from(growth.entries()).map(([id, value]) => `${id}:${value}`).join("|");
+    if (signature === fittedRef.current) return;
+    fittedRef.current = signature;
+    onTextResize?.(growth);
+  }, [elements, page, onTextResize]);
+
 
   return (
     <div
+      ref={pageRef}
       className={`exr-page exr-page--${mode} ${className}`}
       style={{
         width: px(settings.width),

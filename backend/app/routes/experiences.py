@@ -43,10 +43,12 @@ STEP_STATUSES = {"draft", "ready", "locked"}
 
 # Guard rails for the freeform canvas. A page is allowed to be very large
 # (endless/portrait formats) but not unbounded, so a single design can never
-# grow into a multi-gigabyte JSON payload.
+# grow into a multi-gigabyte JSON payload. Elements may be as thin as a 1px
+# hairline divider, so the floor is deliberately low; it only has to rule out
+# zero, negative and nonsensical sizes.
 MIN_PAGE_DIMENSION = 200
 MAX_PAGE_DIMENSION = 12000
-MIN_ELEMENT_SIZE = 8
+MIN_ELEMENT_SIZE = 1
 MAX_ELEMENT_SIZE = 20000
 
 
@@ -66,9 +68,15 @@ def normalize_page_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
         return max(minimum, min(maximum, number))
 
     settings = raw or {}
-    layout_mode = settings.get("layoutMode") or settings.get("layout_mode") or "fixed"
-    if layout_mode not in {"fixed", "endless"}:
-        layout_mode = "fixed"
+    # "custom" keeps the coordinates an author placed; "auto" lets the canvas
+    # stack the elements with even spacing. Designs written before those names
+    # existed spelled the same pair "fixed" and "endless", so the old spellings
+    # are translated rather than rejected - dropping the mode here would make a
+    # page silently stop flowing the next time it is opened.
+    layout_mode = settings.get("layoutMode") or settings.get("layout_mode") or "custom"
+    layout_mode = {"fixed": "custom", "endless": "auto"}.get(layout_mode, layout_mode)
+    if layout_mode not in {"auto", "custom"}:
+        layout_mode = "custom"
 
     orientation = settings.get("orientation") or "portrait"
     if orientation not in {"portrait", "landscape", "square"}:

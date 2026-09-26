@@ -21,16 +21,58 @@ export const FONT_OPTIONS = [
   { value: "system-ui, sans-serif", label: "System (sans)" },
 ];
 
-/** Validate a file chosen through the media dialog. */
-export function validateImageFile(file) {
+/**
+ * Validate a file chosen through the media dialog.
+ *
+ * The type of element decides which formats are acceptable: the previous
+ * version checked every upload against the image list, so a video or audio file
+ * was always rejected no matter which element it was for.
+ */
+export const VIDEO_MIME_TYPES = ["video/mp4", "video/webm", "video/ogg", "video/quicktime"];
+export const AUDIO_MIME_TYPES = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/ogg", "audio/webm", "audio/mp4", "audio/aac", "audio/flac"];
+
+const ACCEPT_BY_MODE = {
+  image: IMAGE_MIME_TYPES,
+  video: [...VIDEO_MIME_TYPES, ...IMAGE_MIME_TYPES],
+  audio: [...AUDIO_MIME_TYPES],
+};
+
+/** The `accept` attribute for a file input, per element type. */
+export function acceptFor(mode) {
+  return (ACCEPT_BY_MODE[mode] || IMAGE_MIME_TYPES).join(",");
+}
+
+export function validateMediaFile(file, mode = "image") {
   if (!file) return { ok: false, reason: "Choose a file first." };
-  if (!IMAGE_MIME_TYPES.includes((file.type || "").toLowerCase())) {
-    return { ok: false, reason: "Unsupported format. Use PNG, JPG, WEBP, GIF or SVG." };
+  const allowed = ACCEPT_BY_MODE[mode] || IMAGE_MIME_TYPES;
+  const type = (file.type || "").toLowerCase();
+  // Some browsers report an empty type for less common extensions, so fall back
+  // to the extension rather than refusing a legitimate file.
+  const extension = (file.name || "").split(".").pop().toLowerCase();
+  const byExtension = {
+    image: ["png", "jpg", "jpeg", "webp", "gif", "svg"],
+    video: ["mp4", "webm", "ogv", "ogg", "mov"],
+    audio: ["mp3", "wav", "ogg", "oga", "m4a", "aac", "flac"],
+  }[mode] || [];
+  const ok = type ? allowed.includes(type) : byExtension.includes(extension);
+
+  if (!ok) {
+    const reason = {
+      image: "Unsupported image. Use PNG, JPG, WEBP, GIF or SVG.",
+      video: "Unsupported video. Use MP4, WebM, OGG or MOV.",
+      audio: "Unsupported audio. Use MP3, WAV, OGG, M4A, AAC or FLAC.",
+    }[mode] || "Unsupported file type.";
+    return { ok: false, reason };
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return { ok: false, reason: "That image is larger than 12 MB. Please compress it and try again." };
+    return { ok: false, reason: "That file is larger than 12 MB. Please compress it and try again." };
   }
   return { ok: true };
+}
+
+/** Backwards-compatible alias used by existing callers. */
+export function validateImageFile(file) {
+  return validateMediaFile(file, "image");
 }
 
 /** Read a File into a data URL (used for the immediate local preview). */

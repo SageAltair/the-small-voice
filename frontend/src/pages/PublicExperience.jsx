@@ -68,7 +68,16 @@ export default function PublicExperience() {
   }
 
   const go = (delta) => setIndex((current) => Math.min(Math.max(current + delta, 0), document.pages.length - 1));
-  const scale = Math.min(1, (typeof window === "undefined" ? 1200 : window.innerWidth - 48) / page.pageSettings.width);
+
+  // On a screen narrower than the design we reflow to the real viewport width
+  // rather than shrinking the whole page, so text stays legible instead of
+  // being scaled down to a thumbnail. On a wide screen the design is shown at
+  // its true size and centred.
+  const available = (typeof window === "undefined" ? 1200 : window.innerWidth) - 32;
+  const designWidth = page.pageSettings.width;
+  const reflow = available < designWidth;
+  const drawWidth = reflow ? available : designWidth;
+  const scale = reflow ? 1 : Math.min(1, available / designWidth);
 
   return (
     <div className="experience-public">
@@ -81,11 +90,23 @@ export default function PublicExperience() {
       </div>
 
       <div className="experience-public__stage" style={{ padding: "32px 24px" }}>
-        <div style={{ width: page.pageSettings.width * scale, margin: "0 auto" }}>
-          <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: page.pageSettings.width }}>
-            <ExperienceRenderer page={page} mode="view" />
+        <div style={{ width: drawWidth * scale, margin: "0 auto" }}>
+          <div
+            style={
+              scale === 1
+                ? { width: drawWidth }
+                : { transform: `scale(${scale})`, transformOrigin: "top left", width: drawWidth }
+            }
+          >
+            <ExperienceRenderer
+              page={page}
+              mode="view"
+              viewportWidth={reflow ? drawWidth : undefined}
+            />
           </div>
-          <div style={{ height: Math.max(0, pageHeight(page) * scale - pageHeight(page)) }} />
+          {scale !== 1 ? (
+            <div style={{ height: Math.max(0, pageHeight(page) * scale - pageHeight(page)) }} />
+          ) : null}
         </div>
       </div>
 

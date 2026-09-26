@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Check, Image as ImageIcon, Link2, Loader2, Upload } from "lucide-react";
 import { api } from "../../services/api";
 import { resolveEmbed } from "../../experience/embedUtils";
-import { validateImageFile, readFileAsDataUrl, formatBytes } from "../../experience/mediaUtils";
+import { validateMediaFile, acceptFor, readFileAsDataUrl, formatBytes } from "../../experience/mediaUtils";
 
 /**
  * "Add Media" dialog: upload from the computer, use a URL, or pick something
@@ -18,6 +18,7 @@ export default function MediaDialog({ mode = "image", assets = [], onInsert, onC
   const [preview, setPreview] = useState(null);
   const fileInput = useRef(null);
   const isEmbed = mode === "embed";
+  const isImage = mode === "image";
   const title = isEmbed ? "Add embed" : mode === "video" ? "Add video" : mode === "audio" ? "Add audio" : "Add media";
 
   useEffect(() => {
@@ -34,10 +35,12 @@ export default function MediaDialog({ mode = "image", assets = [], onInsert, onC
     setBusy(true);
     try {
       if (!isEmbed) {
-        const check = validateImageFile(file);
+        // Validate against the element's own formats, so a video or audio file
+        // is accepted where an image would previously be demanded.
+        const check = validateMediaFile(file, mode);
         if (!check.ok) throw new Error(check.reason);
-        // Immediate local preview so the admin sees the right image right away.
-        setPreview(await readFileAsDataUrl(file));
+        // Immediate local preview so the admin sees the right file right away.
+        setPreview(isImage ? await readFileAsDataUrl(file) : null);
       }
       const uploaded = await api.uploadAsset(file);
       onInsert({ url: uploaded.url, alt, assetId: uploaded.assetId, name: uploaded.name });
@@ -88,7 +91,7 @@ export default function MediaDialog({ mode = "image", assets = [], onInsert, onC
           <button type="button" role="tab" aria-selected={tab === "url"} className={`eb-tab ${tab === "url" ? "is-active" : ""}`} onClick={() => setTab("url")}>
             <Link2 size={14} /> {isEmbed ? "Paste link" : "Use URL"}
           </button>
-          {!isEmbed && (
+          {!isEmbed && !isImage && (
             <button type="button" role="tab" aria-selected={tab === "library"} className={`eb-tab ${tab === "library" ? "is-active" : ""}`} onClick={() => setTab("library")} disabled={!assets.length}>
               <ImageIcon size={14} /> Library
             </button>
@@ -101,7 +104,7 @@ export default function MediaDialog({ mode = "image", assets = [], onInsert, onC
               <input
                 ref={fileInput}
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                accept={acceptFor(mode)}
                 onChange={(event) => handleFile(event.target.files?.[0])}
                 hidden
               />

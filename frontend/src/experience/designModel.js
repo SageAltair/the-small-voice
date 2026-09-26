@@ -11,6 +11,14 @@
 export const MIN_SIZE = 8;
 export const DEFAULT_GRID = 8;
 
+/**
+ * Per-type minimum sizes. A divider is a hairline, so the global 8px floor
+ * made it impossible to draw a 2px rule - the resize handles refused to go
+ * below 8 even though the stored value was legal.
+ */
+export const MIN_SIZE_BY_TYPE = { divider: 1 };
+export const minSizeFor = (type) => MIN_SIZE_BY_TYPE[type] || MIN_SIZE;
+
 let idCounter = 0;
 
 /** Stable, collision-resistant id that stays readable in saved JSON. */
@@ -71,7 +79,13 @@ export function normalizePageSettings(raw) {
     orientation = fallback.orientation;
   }
 
-  const layoutMode = source.layoutMode === "endless" ? "endless" : "fixed";
+  // "custom" keeps the authored positions; "auto" lets the builder stack them
+  // with consistent spacing. Both are user-editable, so switching never
+  // discards content.
+  const layoutMode = ["auto", "custom"].includes(source.layoutMode)
+    ? source.layoutMode
+    : source.layoutMode === "endless" ? "auto" : "custom";
+  const flowMode = source.layoutMode === "endless" || source.layoutMode === "auto" ? "endless" : "fixed";
 
   // Dimensions are preserved exactly as entered. Swapping them here would
   // silently rewrite a design whenever the numbers happened to disagree with
@@ -84,6 +98,7 @@ export function normalizePageSettings(raw) {
     orientation,
     unit: "px",
     layoutMode,
+    flowMode,
     background: source.background || fallback.background,
   };
 }
@@ -146,7 +161,7 @@ export const ELEMENT_TYPES = [
   {
     type: "link", label: "Link", icon: "Link2", group: "Interactive", interactive: true,
     size: { width: 240, height: 32 },
-    content: { text: "Read more", href: "" },
+    content: { text: "Read more", href: "", newTab: true },
     style: { fontSize: 16, color: "#24534a", textDecoration: "underline" },
   },
   {
@@ -194,8 +209,24 @@ export const ELEMENT_TYPES = [
   {
     type: "shape", label: "Shape", icon: "Square", group: "Layout",
     size: { width: 200, height: 200 },
-    content: {},
+    content: { shape: "rectangle" },
     style: { background: "#dce9e1", borderRadius: 16 },
+  },
+  {
+    type: "icon", label: "Icon", icon: "Sparkles", group: "Layout",
+    size: { width: 96, height: 96 },
+    content: { icon: "Star", stroke: 2, filled: false },
+    style: { color: "#24534a" },
+  },
+  {
+    type: "table", label: "Table", icon: "Table2", group: "Content",
+    size: { width: 640, height: 240 },
+    content: {
+      columns: ["Term", "Meaning"],
+      rows: [["New birth", "Beginning with God"], ["Growth", "Learning to walk"]],
+      headerRow: true,
+    },
+    style: { fontSize: 16, background: "#ffffff", color: "#24251f", borderColor: "#d9d8cf", padding: 12 },
   },
   {
     type: "progress", label: "Progress", icon: "BarChart3", group: "Content",
@@ -237,8 +268,8 @@ export function normalizeElement(raw, index = 0) {
     type,
     x: Math.round(toFinite(raw?.x ?? position.x, 0)),
     y: Math.round(toFinite(raw?.y ?? position.y, 0)),
-    width: Math.max(MIN_SIZE, Math.round(toFinite(raw?.width ?? size.width, definition.size.width))),
-    height: Math.max(MIN_SIZE, Math.round(toFinite(raw?.height ?? size.height, definition.size.height))),
+    width: Math.max(minSizeFor(type), Math.round(toFinite(raw?.width ?? size.width, definition.size.width))),
+    height: Math.max(minSizeFor(type), Math.round(toFinite(raw?.height ?? size.height, definition.size.height))),
     rotation: toFinite(raw?.rotation, 0),
     zIndex: Math.round(toFinite(raw?.zIndex ?? raw?.z_index, index)),
     content: { ...definition.content, ...(raw?.content || {}) },
@@ -294,15 +325,176 @@ export function createPage({ title, pageSettings, elements = [] } = {}) {
  * never clipped, with a small margin for oversize rotation.
  */
 export function pageHeight(page) {
-  const settings = page.pageSettings || DEFAULT_PAGE_SETTINGS;
-  if (settings.layoutMode !== "endless") return settings.height;
+  const settings = page?.pageSettings || DEFAULT_PAGE_SETTINGS;
+  if ((settings.flowMode || settings.layoutMode) !== "endless") return settings.height;
 
   const lowest = (page.elements || []).reduce((max, element) => {
     if (element.isVisible === false) return max;
     return Math.max(max, element.y + element.height);
   }, 0);
 
-  return Math.max(settings.height, Math.ceil(lowest) + 80);
+  return Math.max(settings.height, Math.ceil(lowest) + PAGE_BOTTOM_PADDING);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Layout                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Page padding. The canvas had none, so elements could sit flush against (or
+ * half off) the page edge and the last element had no breathing room. This is
+ * the safe area the renderer insets by, and what the bottom spacing is measured
+ * against.
+ */
+export const PAGE_SIDE_PADDING = 64;
+export const PAGE_TOP_PADDING = 64;
+export const PAGE_BOTTOM_PADDING = 96;
+
+/** Device frames used by the responsive preview and the published page. */
+export const DEVICE_FRAMES = [
+  { id: "phone", label: "Phone", width: 390, height: 844 },
+  { id: "tablet", label: "Tablet", width: 834, height: 1112 },
+  { id: "desktop", label: "Desktop", width: 1440, height: 900 },
+];
+
+export const LAYOUT_MODES = [
+  { id: "custom", label: "Custom", hint: "You place and size every element." },
+  { id: "auto", label: "Automatic", hint: "The builder arranges elements; you can still edit them." },
+];
+
+/** Clamp an element inside the page's safe area. */
+export function clampToSafeArea(element, page) {
+  const settings = page?.pageSettings || DEFAULT_PAGE_SETTINGS;
+  const minW = minSizeFor(element.type);
+  const maxW = Math.max(minW, settings.width - PAGE_SIDE_PADDING * 2);
+  const width = Math.min(Math.max(element.width, minW), maxW);
+  const height = Math.max(element.height, minSizeFor(element.type));
+
+  return {
+    ...element,
+    width: Math.round(width),
+    height: Math.round(height),
+    x: Math.round(Math.min(Math.max(element.x, PAGE_SIDE_PADDING), settings.width - PAGE_SIDE_PADDING - width)),
+    y: Math.round(Math.max(PAGE_TOP_PADDING, element.y)),
+  };
+}
+
+/**
+ * Reflow a page for a narrower viewport.
+ *
+ * The design is authored once at its own width. On a smaller screen we scale
+ * every coordinate by the ratio instead of re-running a layout engine, so the
+ * arrangement is identical everywhere and nothing can overflow the page.
+ */
+export function reflowElements(elements, pageWidth, targetWidth) {
+  if (!elements?.length || !pageWidth) return elements || [];
+  const ratio = targetWidth / pageWidth;
+  if (Math.abs(ratio - 1) < 0.001) return elements;
+
+  return elements.map((element) => {
+    const scaled = {
+      ...element,
+      x: Math.round(element.x * ratio),
+      width: Math.round(Math.max(minSizeFor(element.type), element.width * ratio)),
+      height: Math.round(Math.max(minSizeFor(element.type), element.height * ratio)),
+    };
+    // Font size scales with the box so text keeps its proportions and still
+    // wraps instead of overflowing a now-smaller frame.
+    const size = Number(element.style?.fontSize);
+    if (Number.isFinite(size) && size > 0) {
+      scaled.style = { ...element.style, fontSize: Math.max(10, Math.round(size * ratio)) };
+    }
+    return scaled;
+  });
+}
+
+/** Width an element should occupy at a given viewport, honouring its % basis. */
+function responsiveWidth(element, targetWidth) {
+  const basis = Number(element.responsive?.width);
+  if (Number.isFinite(basis) && basis > 0) {
+    return Math.round((basis / 100) * targetWidth);
+  }
+  return Math.min(element.width, targetWidth - PAGE_SIDE_PADDING * 2);
+}
+
+/**
+ * Build the element list to draw at a given viewport width.
+ *
+ * In automatic mode the flow is re-stacked with consistent spacing; in custom
+ * mode the authored positions are kept and simply scaled. Either way the result
+ * is clamped inside the safe area, so nothing spills off the page.
+ */
+export function layoutPage(page, targetWidth) {
+  const settings = page?.pageSettings || DEFAULT_PAGE_SETTINGS;
+  const visible = (page?.elements || []).filter((element) => element.isVisible !== false);
+  const width = targetWidth || settings.width;
+
+  if (settings.layoutMode === "auto") {
+    let cursorY = PAGE_TOP_PADDING;
+    return visible
+      .slice()
+      .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+      .map((element) => {
+        const boxWidth = Math.max(
+          minSizeFor(element.type),
+          Math.min(responsiveWidth(element, width), width - PAGE_SIDE_PADDING * 2),
+        );
+        const gap = element.type === "divider" ? 24 : 28;
+        const next = {
+          ...element,
+          x: Math.round((width - boxWidth) / 2),
+          y: Math.round(cursorY),
+          width: Math.round(boxWidth),
+        };
+        cursorY += element.height + gap;
+        return next;
+      });
+  }
+
+  return reflowElements(visible, settings.width, width)
+    .map((element) => {
+      const boxWidth = Math.max(
+        minSizeFor(element.type),
+        Math.min(responsiveWidth(element, width), width - PAGE_SIDE_PADDING * 2),
+      );
+      return clampToSafeArea(
+        { ...element, width: Math.round(boxWidth), x: Math.round(element.x * (width / settings.width)) },
+        { ...page, pageSettings: { ...settings, width } },
+      );
+    });
+}
+
+/**
+ * Move an element to a new place in the automatic stack.
+ *
+ * In automatic mode the flow owns the coordinates, so dragging there means
+ * "put this one here in the list". `flow` is the laid-out element list the
+ * canvas is drawing, so the rank is decided from the positions the user
+ * actually sees; the result rewrites z-index, which is the order `layoutPage`
+ * stacks in. Nothing is dropped and hidden elements keep their rank.
+ */
+export function reorderStack(elements, flow, movedId, targetY) {
+  const list = elements || [];
+  if (!movedId || !Number.isFinite(targetY)) return list;
+
+  const order = (flow || []).map((element) => element.id).filter((id) => id !== movedId);
+  if (!order.length) return list;
+
+  const boxes = new Map((flow || []).map((element) => [element.id, element]));
+  let insertAt = order.length;
+  for (let index = 0; index < order.length; index += 1) {
+    const box = boxes.get(order[index]);
+    if (!box) continue;
+    if (targetY < box.y + box.height / 2) {
+      insertAt = index;
+      break;
+    }
+  }
+  order.splice(insertAt, 0, movedId);
+
+  const rank = new Map(order.map((id, position) => [id, position]));
+  return list.map((element) => (rank.has(element.id) ? { ...element, zIndex: rank.get(element.id) } : element));
 }
 
 export function normalizePage(raw, index = 0) {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PAGE_SETTINGS, PAGE_PRESETS, alignElements, buildDocument, createElement,
-  createPage, distributeElements, normalizeElement, normalizePageSettings, pageHeight,
-  reorderZ, selectionBounds, snapPosition, toPayload, topZ,
+  createPage, distributeElements, layoutPage, normalizeElement, normalizePageSettings, pageHeight,
+  reorderStack, reorderZ, selectionBounds, snapPosition, toPayload, topZ,
 } from "../designModel.js";
 
 /**
@@ -21,7 +21,8 @@ describe("page settings", () => {
     const settings = normalizePageSettings({});
     expect(settings.width).toBe(DEFAULT_PAGE_SETTINGS.width);
     expect(settings.height).toBe(DEFAULT_PAGE_SETTINGS.height);
-    expect(settings.layoutMode).toBe("fixed");
+    expect(settings.layoutMode).toBe("custom"); // authored geometry, not automatic flow
+    expect(settings.flowMode).toBe("fixed");
   });
 
   it("honours custom dimensions", () => {
@@ -53,7 +54,7 @@ describe("page settings", () => {
   });
 
   it("rejects an unknown layout mode", () => {
-    expect(normalizePageSettings({ layoutMode: "banana" }).layoutMode).toBe("fixed");
+    expect(normalizePageSettings({ layoutMode: "banana" }).layoutMode).toBe("custom");
   });
 });
 
@@ -279,5 +280,83 @@ describe("migration from the old nested element shape", () => {
 
   it("always produces at least one page", () => {
     expect(buildDocument(null).pages).toHaveLength(1);
+  });
+});
+
+/**
+ * Automatic layout: the page decides where things sit, in z-order, and a drag
+ * changes the ranking rather than the coordinates. These are the guarantees
+ * that make the published page match the canvas.
+ */
+describe("automatic layout", () => {
+  const flowPage = (layoutMode = "auto") => createPage({
+    pageSettings: { layoutMode, width: 1080, height: 1920 },
+    elements: [
+      box(80, 1700, 300, 120, 1, "a"), // authored near the bottom edge
+      box(600, 120, 300, 80, 0, "b"), // top of the z-order
+      box(80, 500, 300, 140, 2, "c"),
+    ],
+  });
+
+  it("keeps the mode and marks the page as endless", () => {
+    const settings = normalizePageSettings({ layoutMode: "auto", width: 1080, height: 600 });
+    expect(settings.layoutMode).toBe("auto");
+    expect(settings.flowMode).toBe("endless");
+    expect(normalizePageSettings({ layoutMode: "custom" }).layoutMode).toBe("custom");
+  });
+
+  it("translates the legacy spellings instead of dropping them", () => {
+    // Older designs stored "endless"/"fixed". Rejecting them would silently
+    // switch a saved page out of automatic layout the next time it opens.
+    expect(normalizePageSettings({ layoutMode: "endless" }).layoutMode).toBe("auto");
+    expect(normalizePageSettings({ layoutMode: "fixed" }).layoutMode).toBe("custom");
+    expect(normalizePageSettings({ layoutMode: "banana" }).layoutMode).toBe("custom");
+  });
+
+  it("stacks by z-order no matter where elements were authored", () => {
+    const flowed = layoutPage(flowPage(), 1080);
+    expect(flowed.map((element) => element.id)).toEqual(["b", "a", "c"]);
+    flowed.forEach((element, index) => {
+      if (index === 0) return;
+      const previous = flowed[index - 1];
+      expect(element.y).toBeGreaterThanOrEqual(previous.y + previous.height);
+    });
+    // The authored y of 1700 is not the y that gets drawn.
+    expect(flowed.find((element) => element.id === "a").y).toBeLessThan(1700);
+  });
+
+  it("leaves custom pages where they were authored", () => {
+    const placed = layoutPage(flowPage("custom"), 1080);
+    expect(placed.find((element) => element.id === "a").y).toBe(1700);
+    expect(placed.find((element) => element.id === "b").y).toBe(120);
+  });
+
+  it("grows an endless page past its declared height", () => {
+    // Authored geometry must not clip a flowing page: the height follows the
+    // lowest element, whatever the declared height says.
+    const page = createPage({
+      pageSettings: { layoutMode: "auto", width: 1080, height: 600 },
+      elements: [box(80, 520, 300, 160, 0, "deep")],
+    });
+    expect(pageHeight(page)).toBeGreaterThan(600);
+  });
+
+  it("re-ranks the stack when an element is dragged", () => {
+    const page = flowPage();
+    const flow = layoutPage(page, 1080);
+    const last = flow[flow.length - 1];
+    const moved = reorderStack(page.elements, flow, "b", last.y + last.height + 10);
+    expect(moved.find((element) => element.id === "b").zIndex).toBe(2);
+    expect(moved.find((element) => element.id === "a").zIndex).toBe(0);
+    expect(layoutPage({ ...page, elements: moved }, 1080).map((element) => element.id))
+      .toEqual(["a", "c", "b"]);
+  });
+
+  it("ignores a drag with no meaningful target", () => {
+    const page = flowPage();
+    const flow = layoutPage(page, 1080);
+    expect(reorderStack(page.elements, flow, "b", NaN)).toBe(page.elements);
+    expect(reorderStack(page.elements, flow, "b", 10).map((element) => element.zIndex))
+      .toEqual([1, 0, 2]); // dropped at the very top: it stays first
   });
 });

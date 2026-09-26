@@ -1,23 +1,13 @@
 import { useEffect, useMemo, useRef } from "react";
+import * as ICONS from "lucide-react";
 import { resolveEmbed, EMBED_IFRAME, isSafeMediaUrl } from "../../experience/embedUtils";
 import { getImageUrl } from "../../services/api";
-import { pageHeight } from "../../experience/designModel";
-
-/**
- * Renders a page's elements at their exact stored coordinates.
- *
- * This is the only layout implementation in the product. The editing canvas,
- * the preview and the published page all mount this same component, so what an
- * admin arranges is what a visitor sees - there is no second, automatic layout
- * engine that could disagree with the canvas.
- *
- * `mode`: "edit" adds selection chrome, "view" is the final presentation.
- */
+import { pageHeight, layoutPage, PAGE_BOTTOM_PADDING } from "../../experience/designModel";
 
 const px = (value) => (Number.isFinite(value) ? `${value}px` : undefined);
 
 /** Turn an element's style bag into inline CSS. */
-export function styleToCss(style = {}, extra = {}) {
+function styleToCss(style = {}, extra = {}) {
   const css = {};
   const passthrough = {
     fontWeight: "fontWeight",
@@ -199,7 +189,16 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
     case "checkbox":
       return (
         <label className="exr-checkbox" style={styleToCss(style)} onClick={stop}>
-          <input type="checkbox" checked={Boolean(content.checked)} readOnly={editable} tabIndex={editable ? -1 : 0} />
+          <input
+            type="checkbox"
+            checked={Boolean(content.checked)}
+            readOnly={editable}
+            tabIndex={editable ? -1 : 0}
+            onChange={(event) => {
+              if (editable) return;
+              onAction?.(element, { checked: event.target.checked });
+            }}
+          />
           <span>{content.text || "Option"}</span>
         </label>
       );
@@ -246,8 +245,69 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
     case "divider":
       return <div className="exr-divider" style={styleToCss(style)} />;
 
-    case "shape":
-      return <div className="exr-shape" style={styleToCss(style)} />;
+    case "shape": {
+      const shape = content.shape || "rectangle";
+      // Triangle and arrow are drawn with borders / clip-paths, so they take
+      // the frame size as CSS variables instead of width and height.
+      const box = styleToCss(
+        shape === "triangle" || shape === "arrow"
+          ? { background: undefined, border: undefined, borderRadius: undefined }
+          : style,
+        {
+          "--shape-half": `${Math.round((element.width || 100) / 2)}px`,
+          "--shape-full": `${Math.round(element.height || 100)}px`,
+        },
+      );
+      return (
+        <div className={`exr-shape exr-shape--${shape}`} style={box} role="presentation" />
+      );
+    }
+
+    case "icon": {
+      const Icon = ICONS[content.icon] || ICONS.Star;
+      if (!Icon) return <Placeholder label="Icon" />;
+      const size = Math.max(8, Math.min(element.width || 96, element.height || 96));
+      return (
+        <span className="exr-icon" style={{ color: style?.color || "currentColor" }}>
+          <Icon
+            size={size}
+            strokeWidth={Number(content.stroke) || 2}
+            fill={content.filled ? "currentColor" : "none"}
+          />
+        </span>
+      );
+    }
+
+    case "table": {
+      const columns = content.columns || [];
+      const rows = content.rows || [];
+      const align = style?.textAlign || "left";
+      const cellStyle = { textAlign: align, borderColor: style?.borderColor, padding: style?.padding };
+      return (
+        <div className="exr-table-wrap">
+          <table className="exr-table" style={{ fontSize: style?.fontSize || 16, color: style?.color }}>
+            {content.headerRow !== false && columns.length ? (
+              <thead>
+                <tr>
+                  {columns.map((cell, index) => (
+                    <th key={`h-${index}`} style={{ ...cellStyle, background: style?.background }}>{cell}</th>
+                  ))}
+                </tr>
+              </thead>
+            ) : null}
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={`r-${rowIndex}`}>
+                  {(row.length ? row : columns.map(() => "")).map((cell, cellIndex) => (
+                    <td key={`c-${cellIndex}`} style={cellStyle}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
 
     case "progress": {
       const value = Math.max(0, Math.min(100, Number(content.value) || 0));
@@ -275,6 +335,16 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
 /* Page renderer                                                       */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Renders a page's elements at their exact stored coordinates.
+ *
+ * This is the only layout implementation in the product. The editing canvas,
+ * the preview and the published page all mount this same component, so what an
+ * admin arranges is what a visitor sees - there is no second, automatic layout
+ * engine that could disagree with the canvas.
+ *
+ * `mode`: "edit" adds selection chrome, "view" is the final presentation.
+ */
 export default function ExperienceRenderer({
   page,
   mode = "view",
@@ -283,15 +353,40 @@ export default function ExperienceRenderer({
   onAction,
   onRequestMedia,
   onTextResize,
+  viewportWidth,
   renderChrome,
   className = "",
   style: wrapperStyle,
   ...rest
 }) {
   const settings = page?.pageSettings || {};
-  const height = useMemo(() => (page ? pageHeight(page) : 0), [page]);
+  // `viewportWidth` lets preview and the published page render the same design
+  // at a phone/tablet/desktop width. The editor passes nothing, so the canvas
+  // always shows the design at its true authored size.
+  const drawWidth = viewportWidth || settings.width;
+  // Automatic layout is a property of the page, not of the viewport: the editor
+  // canvas has to show it too, otherwise the toggle only appears to work in
+  // preview and what gets published is a surprise.
+  const autoFlow = settings.layoutMode === "auto";
+  const height = useMemo(() => {
+    if (!page) return 0;
+    const fixed = pageHeight(page);
+    if (drawWidth === settings.width && !autoFlow) return fixed;
+    const flowed = layoutPage(page, drawWidth);
+    const lowest = flowed.reduce((max, element) => Math.max(max, element.y + element.height), 0);
+    return Math.max(Math.ceil(lowest) + PAGE_BOTTOM_PADDING, fixed);
+  }, [page, drawWidth, settings.width, autoFlow]);
   const selection = new Set(selectedIds);
-  const elements = (page?.elements || []).filter((element) => element.isVisible !== false);
+  const elements = useMemo(() => {
+    if (!page) return [];
+    // In custom mode inside the editor we draw the authored geometry, so the
+    // frame you drag is the frame that gets saved. Automatic mode, and every
+    // preview or published view, draws the flowed arrangement instead.
+    if (!autoFlow && (!viewportWidth || drawWidth === settings.width)) {
+      return page.elements.filter((element) => element.isVisible !== false);
+    }
+    return layoutPage(page, drawWidth);
+  }, [page, viewportWidth, drawWidth, settings.width, autoFlow]);
   const pageRef = useRef(null);
   const fittedRef = useRef("");
 
@@ -329,7 +424,7 @@ export default function ExperienceRenderer({
       ref={pageRef}
       className={`exr-page exr-page--${mode} ${className}`}
       style={{
-        width: px(settings.width),
+        width: px(drawWidth),
         height: px(height),
         background: settings.background || undefined,
         ...wrapperStyle,

@@ -414,7 +414,9 @@
   min-height: 100%;
   align-items: flex-start;
   justify-content: center;
-  padding: 48px;
+  /* Generous gutter so the artboard never touches the edge of the workspace,
+     and the whole page including its last element is reachable by scrolling. */
+  padding: 64px 64px 128px;
   transform-origin: top left;
   width: max-content;
 }
@@ -567,6 +569,151 @@
   margin: 0;
   overflow-wrap: break-word;
 }
+
+/* ---------------- shapes, icons, tables ---------------- */
+
+.exr-shape { display: block; width: 100%; height: 100%; }
+.exr-shape--rectangle { border-radius: 0; }
+.exr-shape--rounded { border-radius: 24px; }
+.exr-shape--circle { border-radius: 50%; aspect-ratio: 1; }
+.exr-shape--ellipse { border-radius: 50%; }
+.exr-shape--triangle {
+  width: 0;
+  height: 0;
+  border-right: calc(var(--shape-half, 50px)) solid transparent;
+  border-bottom: calc(var(--shape-full, 100px)) solid currentColor;
+  border-left: calc(var(--shape-half, 50px)) solid transparent;
+  background: transparent;
+  color: inherit;
+}
+.exr-shape--star {
+  background: transparent;
+  color: inherit;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.exr-shape--line { height: 2px; align-self: center; }
+.exr-shape--arrow {
+  background: transparent;
+  clip-path: polygon(0 42%, 68% 42%, 68% 18%, 100% 50%, 68% 82%, 68% 58%, 0 58%);
+}
+
+.exr-icon { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; }
+
+/* Tables scroll horizontally on a phone rather than squashing or clipping. */
+.exr-table-wrap { width: 100%; height: 100%; overflow: auto; }
+.exr-table { width: 100%; border-collapse: collapse; font-family: "Poppins", system-ui, sans-serif; }
+.exr-table th,
+.exr-table td { border: 1px solid #d9d8cf; padding: 10px 12px; vertical-align: top; }
+.exr-table th { font-weight: 600; background: #f4f6f4; }
+.exr-table tr { border: 0; }
+.exr-table th { border: 1px solid #d9d8cf; }
+
+/* ---------------- help + export ---------------- */
+
+.eb-help__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 0 16px 10px;
+  background: var(--canvas);
+  color: var(--text-muted);
+}
+
+.eb-help__search input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 400 .85rem Poppins, sans-serif;
+  outline: none;
+}
+
+.eb-help__body { max-height: 60vh; }
+.eb-help__list { display: grid; gap: 14px; margin: 0; }
+
+.eb-help__entry {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.eb-help__entry dt {
+  margin-bottom: 6px;
+  color: var(--text);
+  font: 600 .85rem Poppins, sans-serif;
+}
+
+.eb-help__entry dt small {
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: .68rem;
+}
+
+.eb-help__entry dd { margin: 0; display: grid; gap: 4px; }
+.eb-help__entry dd p { margin: 0; color: var(--text-muted); font: 400 .78rem Poppins, sans-serif; line-height: 1.55; }
+.eb-help__entry mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 0 2px; }
+
+.eb-help__table { width: 100%; border-collapse: collapse; }
+.eb-help__table th { width: 190px; text-align: left; padding: 7px 10px 7px 0; vertical-align: top; }
+.eb-help__table td { padding: 7px 0; color: var(--text-muted); font: 400 .78rem Poppins, sans-serif; }
+.eb-help__table kbd {
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--canvas);
+  color: var(--text);
+  font: 500 .7rem "DM Mono", monospace;
+}
+
+.eb-modal__card--wide { width: min(720px, 94vw); }
+
+.eb-export { position: relative; }
+.eb-export__scrim { position: fixed; z-index: 40; inset: 0; }
+.eb-export__menu {
+  position: absolute;
+  z-index: 41;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  gap: 2px;
+  min-width: 210px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.eb-export__title { padding: 6px 8px; color: var(--text-muted); font: 600 .64rem Poppins, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
+.eb-export__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: 500 .78rem Poppins, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.eb-export__item:hover:not(:disabled) { background: var(--canvas); }
+.eb-export__item:disabled { opacity: .55; cursor: not-allowed; }
+.eb-export__error { margin: 4px 6px 2px; color: var(--danger, #b42318); font: 500 .72rem Poppins, sans-serif; }
+
+.eb-check { display: flex; align-items: center; gap: 8px; color: var(--text); font: 500 .78rem Poppins, sans-serif; }
+.eb-check input { width: 15px; height: 15px; accent-color: var(--accent); }
+.eb-field__error { margin: 4px 0 0; color: var(--danger, #b42318); font: 500 .72rem Poppins, sans-serif; }
+.eb-input.is-invalid { border-color: var(--danger, #b42318); }
+.eb-table-row { display: grid; gap: 4px; margin-bottom: 8px; }
+.eb-table-row .eb-media-row { align-items: center; }
+.eb-table-row .eb-input { flex: 1; }
 
 /* ---------------- selection chrome ---------------- */
 

@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle, ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Check, ChevronLeft, Copy, Eye,
-  Grid3x3, Image as ImageIcon, Loader2, Lock, Maximize2, Plus,
+  Grid3x3, HelpCircle, Image as ImageIcon, Loader2, Lock, Maximize2, Plus,
   Redo2, RotateCw, Save, Send, Trash2, Undo2, Unlock, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
 import ExperienceRenderer from "../components/experience/ExperienceRenderer";
+import { SHAPE_OPTIONS, ICON_OPTIONS } from "../experience/elementCatalog";
 import MediaDialog from "../components/experience/MediaDialog";
+import HelpPanel from "../components/experience/HelpPanel";
+import ExportMenu from "../components/experience/ExportMenu";
 import { createHistory } from "../experience/designHistory";
 import {
-  ELEMENT_GROUPS, ELEMENT_TYPES, PAGE_PRESETS, MIN_SIZE,
+  ELEMENT_GROUPS, ELEMENT_TYPES, PAGE_PRESETS, DEVICE_FRAMES, LAYOUT_MODES,
   alignElements, buildDocument, createElement, createPage, distributeElements,
-  normalizePageSettings, pageHeight, reorderZ, snapPosition, toPayload, topZ,
+  minSizeFor, normalizePageSettings, pageHeight, reorderZ, snapPosition, toPayload, topZ,
+  layoutPage, reorderStack,
 } from "../experience/designModel";
 import { OBJECT_FIT_OPTIONS, FONT_OPTIONS, ratioOf } from "../experience/mediaUtils";
 import "../experience-builder.css";
@@ -329,12 +333,38 @@ function PageSettings({ page, onSettings }) {
       </select>
 
       <label className="eb-label" htmlFor="page-layout">Layout mode</label>
-      <select id="page-layout" className="eb-input" value={settings.layoutMode} onChange={(event) => onSettings({ layoutMode: event.target.value })}>
+      <select
+        id="page-layout"
+        className="eb-input"
+        value={settings.layoutMode === "auto" ? "auto" : "custom"}
+        onChange={(event) => {
+          const mode = event.target.value;
+          // Switching never discards content: "auto" is a flow the renderer
+          // applies on top of the same stored elements, so switching back
+          // returns the author's own positions.
+          onSettings({ layoutMode: mode });
+        }}
+      >
+        {LAYOUT_MODES.map((mode) => (
+          <option key={mode.id} value={mode.id}>{mode.label}</option>
+        ))}
+      </select>
+      <p className="eb-hint">
+        {LAYOUT_MODES.find((mode) => mode.id === (settings.layoutMode === "auto" ? "auto" : "custom"))?.hint}
+      </p>
+
+      <label className="eb-label" htmlFor="page-flow">Page height</label>
+      <select
+        id="page-flow"
+        className="eb-input"
+        value={settings.flowMode === "endless" ? "endless" : "fixed"}
+        onChange={(event) => onSettings({ flowMode: event.target.value })}
+      >
         <option value="fixed">Fixed page</option>
         <option value="endless">Endless / scrollable</option>
       </select>
       <p className="eb-hint">
-        {settings.layoutMode === "endless"
+        {settings.flowMode === "endless"
           ? "The page grows as you add content further down."
           : "Content stays inside the declared page size."}
       </p>
@@ -426,24 +456,41 @@ function SelectionChrome({ element, selected, onDrag, onResize, onRotate, action
   );
 }
 
-/** Preview uses the same renderer as the canvas and the public page. */
+/**
+ * Preview uses the same renderer as the canvas and the public page, so what an
+ * admin checks here is what a visitor gets. The device switch changes the
+ * viewport the design is drawn at, which reflows and clamps the elements.
+ */
 function PreviewStage({ doc, pageIndex, onPage }) {
   const viewportRef = useRef(null);
   const [zoom, setZoom] = useState(0.4);
+  const [device, setDevice] = useState("phone");
   const page = doc.pages[pageIndex];
+  const frame = DEVICE_FRAMES.find((item) => item.id === device) || DEVICE_FRAMES[0];
 
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport || !page) return;
     const rect = viewport.getBoundingClientRect();
-    const next = Math.min((rect.width - 80) / page.pageSettings.width, (rect.height - 120) / pageHeight(page), 1);
+    const next = Math.min((rect.width - 80) / frame.width, (rect.height - 140) / pageHeight(page), 1);
     if (Number.isFinite(next) && next > 0) setZoom(clamp(next, MIN_ZOOM, 1));
-  }, [page]);
+  }, [page, frame.width]);
 
   return (
     <div className="eb-preview">
       <div className="eb-preview__bar">
-        <span className="eb-hint">Preview renders the saved design exactly as a visitor will see it.</span>
+        <div className="eb-seg" role="group" aria-label="Preview device">
+          {DEVICE_FRAMES.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`eb-seg ${device === item.id ? "is-active" : ""}`}
+              onClick={() => setDevice(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
         {doc.pages.length > 1 ? (
           <div className="eb-preview__pages">
             {doc.pages.map((item, index) => (
@@ -458,10 +505,13 @@ function PreviewStage({ doc, pageIndex, onPage }) {
             ))}
           </div>
         ) : null}
+        <span className="eb-hint">
+          {frame.width}px wide — elements reflow to fit.
+        </span>
       </div>
       <div className="eb-preview__stage" ref={viewportRef}>
         <div style={{ transform: `scale(${zoom})` }}>
-          <ExperienceRenderer page={page} mode="view" />
+          <ExperienceRenderer page={page} mode="view" viewportWidth={frame.width} />
         </div>
       </div>
     </div>
@@ -523,11 +573,128 @@ function ColorField({ label, value, onChange }) {
 
 
 /** Content fields per element type. Every one writes straight to the element. */
+/**
+ * Icon picker.
+ *
+ * Its own component because the search box holds state: inline in the content
+ * switch it would be a hook called only while an icon is selected, which breaks
+ * the hook order the moment another element is clicked.
+ */
+function IconFields({ content, onContent }) {
+  const [term, setTerm] = useState("");
+  const matches = ICON_OPTIONS.filter((option) => (
+    !term || option.label.toLowerCase().includes(term.toLowerCase())
+  )).slice(0, 60);
+
+  return (
+    <>
+      <label className="eb-field">
+        <span className="eb-label">Search icons</span>
+        <input
+          className="eb-input"
+          value={term}
+          onChange={(event) => setTerm(event.target.value)}
+          placeholder="star, heart, arrow…"
+        />
+      </label>
+      <label className="eb-field">
+        <span className="eb-label">Icon ({matches.length} shown)</span>
+        <select
+          className="eb-input"
+          value={content.icon || "Star"}
+          onChange={(event) => onContent({ icon: event.target.value })}
+        >
+          {matches.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+      <NumberField
+        label="Stroke"
+        value={Number(content.stroke) || 2}
+        min={0.5}
+        max={4}
+        step={0.5}
+        onChange={(stroke) => onContent({ stroke })}
+      />
+      <label className="eb-check">
+        <input
+          type="checkbox"
+          checked={Boolean(content.filled)}
+          onChange={(event) => onContent({ filled: event.target.checked })}
+        />
+        <span>Fill the shape</span>
+      </label>
+    </>
+  );
+}
+
 function ContentFields({ element, onContent, onMedia }) {
   const content = element.content || {};
   const type = element.type;
 
-  if (["heading", "text", "button", "link", "checkbox", "question"].includes(type)) {
+  if (type === "link") {
+    const href = content.href || "";
+    const invalid = Boolean(href) && !/^(https:\/\/|\/(?!\/)|#)/i.test(href.trim());
+    return (
+      <>
+        <label className="eb-field">
+          <span className="eb-label">Text</span>
+          <input
+            className="eb-input"
+            value={content.text || ""}
+            onChange={(event) => onContent({ text: event.target.value })}
+            placeholder="Read more"
+          />
+        </label>
+        <label className="eb-field">
+          <span className="eb-label">Link address (HTTPS)</span>
+          <input
+            className={`eb-input ${invalid ? "is-invalid" : ""}`}
+            value={href}
+            onChange={(event) => onContent({ href: event.target.value })}
+            placeholder="https://example.com"
+            aria-invalid={invalid}
+          />
+        </label>
+        {invalid ? <p className="eb-field__error">Enter a full https:// address, a /path, or #anchor.</p> : null}
+        <label className="eb-check">
+          <input
+            type="checkbox"
+            checked={content.newTab !== false}
+            onChange={(event) => onContent({ newTab: event.target.checked })}
+          />
+          <span>Open in a new tab</span>
+        </label>
+      </>
+    );
+  }
+
+  if (type === "checkbox") {
+    return (
+      <>
+        <label className="eb-field">
+          <span className="eb-label">Text</span>
+          <input
+            className="eb-input"
+            value={content.text || ""}
+            onChange={(event) => onContent({ text: event.target.value })}
+            placeholder="I have completed this lesson"
+          />
+        </label>
+        <label className="eb-check">
+          <input
+            type="checkbox"
+            checked={Boolean(content.checked)}
+            onChange={(event) => onContent({ checked: event.target.checked })}
+          />
+          <span>Ticked by default</span>
+        </label>
+      </>
+    );
+  }
+
+  if (["heading", "text", "button", "question"].includes(type)) {
     return (
       <label className="eb-field">
         <span className="eb-label">Text</span>
@@ -539,17 +706,6 @@ function ContentFields({ element, onContent, onMedia }) {
           placeholder="Type your text…"
         />
       </label>
-    );
-  }
-
-  if (type === "link") {
-    return (
-      <>
-        <label className="eb-field">
-          <span className="eb-label">Link (HTTPS)</span>
-          <input className="eb-input" value={content.href || ""} onChange={(event) => onContent({ href: event.target.value })} placeholder="https://" />
-        </label>
-      </>
     );
   }
 
@@ -645,6 +801,100 @@ function ContentFields({ element, onContent, onMedia }) {
 
   if (type === "progress") {
     return <NumberField label="Progress (%)" value={Number(content.value) || 0} min={0} max={100} onChange={(value) => onContent({ value })} />;
+  }
+
+  if (type === "shape") {
+    return (
+      <SelectField
+        label="Shape"
+        value={content.shape || "rectangle"}
+        options={SHAPE_OPTIONS}
+        onChange={(shape) => onContent({ shape })}
+      />
+    );
+  }
+
+  if (type === "icon") {
+    return <IconFields content={content} onContent={onContent} />;
+  }
+
+  if (type === "table") {
+    const columns = content.columns || [];
+    const rows = content.rows || [];
+    const setRows = (next) => onContent({ rows: next });
+    return (
+      <>
+        <label className="eb-field">
+          <span className="eb-label">Columns (one per line)</span>
+          <textarea
+            className="eb-input eb-input--area"
+            rows={3}
+            value={columns.join("\n")}
+            onChange={(event) => {
+              const next = event.target.value.split("\n");
+              // Keep the rows aligned to the new column count so no cell is lost.
+              onContent({
+                columns: next,
+                rows: rows.map((row) => next.map((_, index) => row[index] ?? "")),
+              });
+            }}
+          />
+        </label>
+        {rows.map((row, rowIndex) => (
+          <div key={rowIndex} className="eb-table-row">
+            <span className="eb-label">Row {rowIndex + 1}</span>
+            <div className="eb-media-row">
+              <input
+                className="eb-input"
+                value={(row || []).join(" | ")}
+                onChange={(event) => {
+                  const next = rows.slice();
+                  next[rowIndex] = event.target.value.split("|").map((cell) => cell.trim());
+                  setRows(next);
+                }}
+                placeholder="Cell 1 | Cell 2"
+              />
+              <button
+                type="button"
+                className="eb-btn eb-btn--ghost"
+                onClick={() => setRows(rows.filter((_, index) => index !== rowIndex))}
+                aria-label={`Remove row ${rowIndex + 1}`}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
+        ))}
+        <div className="eb-media-row">
+          <button
+            type="button"
+            className="eb-btn eb-btn--soft"
+            onClick={() => setRows([...rows, columns.map(() => "")])}
+          >
+            <Plus size={13} /> Add row
+          </button>
+          <button
+            type="button"
+            className="eb-btn eb-btn--soft"
+            onClick={() => onContent({ columns: [...columns, `Column ${columns.length + 1}`] })}
+          >
+            <Plus size={13} /> Add column
+          </button>
+        </div>
+        <label className="eb-check">
+          <input
+            type="checkbox"
+            checked={content.headerRow !== false}
+            onChange={(event) => onContent({ headerRow: event.target.checked })}
+          />
+          <span>Style the first row as a header</span>
+        </label>
+      </>
+    );
+  }
+
+  if (type === "divider") {
+    return null;
   }
 
   return null;
@@ -763,15 +1013,39 @@ function PropertiesPanel({
 
       <section className="eb-panel__section">
         <h4 className="eb-toolgroup__label">Position & size</h4>
+        {page?.pageSettings?.layoutMode === "auto" ? (
+          <>
+            {/* Automatic layout derives x/y from the stack, so the useful controls
+                here are the place in the stack and the box itself. */}
+            <p className="eb-hint">
+              Automatic layout stacks this element in the page order. Use the layer
+              buttons, or drag it on the canvas, to change its place in the stack.
+            </p>
+            <div className="eb-row">
+              {/* The stack runs in z order, so a lower layer sits higher on the
+                  page - the labels say what happens, not what the z-index does. */}
+              <button type="button" className="eb-button eb-button--ghost" onClick={() => onZ("backward")}>
+                Move up the page
+              </button>
+              <button type="button" className="eb-button eb-button--ghost" onClick={() => onZ("forward")}>
+                Move down the page
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="eb-row">
+            <NumberField label="X" value={element.x} min={-4000} max={20000} suffix="px" onChange={(value) => onPatch([element.id], { x: value })} />
+            <NumberField label="Y" value={element.y} min={-4000} max={20000} suffix="px" onChange={(value) => onPatch([element.id], { y: value })} />
+          </div>
+        )}
         <div className="eb-row">
-          <NumberField label="X" value={element.x} min={-4000} max={20000} suffix="px" onChange={(value) => onPatch([element.id], { x: value })} />
-          <NumberField label="Y" value={element.y} min={-4000} max={20000} suffix="px" onChange={(value) => onPatch([element.id], { y: value })} />
-        </div>
-        <div className="eb-row">
-          <NumberField label="Width" value={element.width} min={MIN_SIZE} max={20000} suffix="px" onChange={(value) => onPatch([element.id], { width: value })} />
-          <NumberField label="Height" value={element.height} min={MIN_SIZE} max={20000} suffix="px" onChange={(value) => onPatch([element.id], { height: value })} />
+          <NumberField label="Width" value={element.width} min={minSizeFor(element.type)} max={20000} suffix="px" onChange={(value) => onPatch([element.id], { width: value })} />
+          <NumberField label="Height" value={element.height} min={minSizeFor(element.type)} max={20000} suffix="px" onChange={(value) => onPatch([element.id], { height: value })} />
         </div>
         <NumberField label="Rotation" value={element.rotation || 0} min={-360} max={360} suffix="°" onChange={(value) => onPatch([element.id], { rotation: value })} />
+        {element.type === "divider" ? (
+          <p className="eb-hint">A divider can be as thin as 1px.</p>
+        ) : null}
       </section>
 
       <section className="eb-panel__section">
@@ -834,6 +1108,7 @@ export default function ExperienceBuilder() {
   const [status, setStatus] = useState("idle");
   const [saveError, setSaveError] = useState("");
   const [mediaFor, setMediaFor] = useState(null);
+  const [showHelp, setShowHelp] = useState(false);
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
 
   const historyRef = useRef(null);
@@ -1176,7 +1451,23 @@ export default function ExperienceBuilder() {
       page.elements.filter((item) => ids.includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }]),
     );
 
-    dragRef.current = { kind: "move", ids, start: toPagePoint(event), origin, moved: false };
+    // In automatic layout the flow owns the coordinates, so a drag cannot move
+    // an element freely - it re-ranks it in the stack instead. Capture where the
+    // element sits in the flow when the drag starts; measuring from the current
+    // flow every frame would feed the re-ranking back into itself and jitter.
+    const autoFlow = page.pageSettings?.layoutMode === "auto" && ids.length === 1;
+    const flow = autoFlow ? layoutPage(page, page.pageSettings?.width) : null;
+    const flowBox = flow?.find((item) => item.id === ids[0]) || null;
+
+    dragRef.current = {
+      kind: "move",
+      ids,
+      start: toPagePoint(event),
+      origin,
+      moved: false,
+      autoFlow,
+      flowOrigin: flowBox ? { y: flowBox.y, height: flowBox.height } : null,
+    };
     // Capture on the viewport (an ancestor) so every subsequent move still
     // reaches the move handler even when the cursor outruns the element.
     try { viewportRef.current?.setPointerCapture?.(event.pointerId); } catch { /* not capturable */ }
@@ -1215,6 +1506,8 @@ export default function ExperienceBuilder() {
       start: toPagePoint(event),
       origin,
       ratio: handle.length === 2 ? ratioOf(element) : null,
+      // A divider can be a 1px hairline, so the floor is per element type.
+      min: minSizeFor(element.type),
       moved: false,
     };
 
@@ -1256,6 +1549,17 @@ export default function ExperienceBuilder() {
     drag.moved = true;
 
     if (drag.kind === "move") {
+      if (drag.autoFlow && drag.flowOrigin) {
+        // Automatic layout: dragging re-orders the stack rather than setting a
+        // free position, so the canvas can never show something the published
+        // page would not repeat.
+        const flow = layoutPage(page, page.pageSettings?.width);
+        const centreY = drag.flowOrigin.y + drag.flowOrigin.height / 2 + dy;
+        setGuides([]);
+        updateCurrentPage((p) => ({ ...p, elements: reorderStack(p.elements, flow, drag.ids[0], centreY) }), { transaction: "begin" });
+        return;
+      }
+
       const others = page.elements.filter((element) => !drag.ids.includes(element.id));
       const lead = drag.origin.get(drag.ids[0]);
       if (!lead) return;
@@ -1306,15 +1610,15 @@ export default function ExperienceBuilder() {
     if (handle.includes("w")) { width = origin.width - dx; x = origin.x + dx; }
     if (handle.includes("n")) { height = origin.height - dy; y = origin.y + dy; }
 
-    width = Math.max(MIN_SIZE, Math.round(width));
-    height = Math.max(MIN_SIZE, Math.round(height));
+    width = Math.max(drag.min, Math.round(width));
+    height = Math.max(drag.min, Math.round(height));
 
     // Corner handles preserve the element's aspect ratio.
     if (drag.ratio) {
       if (Math.abs(dx) >= Math.abs(dy)) {
-        height = Math.max(MIN_SIZE, Math.round(width / drag.ratio));
+        height = Math.max(drag.min, Math.round(width / drag.ratio));
       } else {
-        width = Math.max(MIN_SIZE, Math.round(height * drag.ratio));
+        width = Math.max(drag.min, Math.round(height * drag.ratio));
       }
       if (handle.includes("n")) y = origin.y + origin.height - height;
       if (handle.includes("w")) x = origin.x + origin.width - width;
@@ -1332,13 +1636,15 @@ export default function ExperienceBuilder() {
         if (!drag.ids.includes(element.id)) return element;
         const own = drag.origin.get(element.id);
         if (!own) return element;
+        // Each member scales by its own type's minimum.
+        const ownMin = minSizeFor(element.type);
         // Extra members of a multi-selection scale with the primary box.
         return {
           ...element,
           x: Math.round(handle.includes("w") ? own.x : origin.x + (own.x - origin.x) * scaleX),
           y: Math.round(handle.includes("n") ? own.y : origin.y + (own.y - origin.y) * scaleY),
-          width: Math.max(MIN_SIZE, Math.round(own.width * (growX ? scaleX : 1))),
-          height: Math.max(MIN_SIZE, Math.round(own.height * (growY ? scaleY : 1))),
+          width: Math.max(ownMin, Math.round(own.width * (growX ? scaleX : 1))),
+          height: Math.max(ownMin, Math.round(own.height * (growY ? scaleY : 1))),
         };
       }),
     }), { transaction: "begin" });
@@ -1698,6 +2004,15 @@ export default function ExperienceBuilder() {
           <button type="button" className="eb-btn eb-btn--ghost" onClick={manualSave} disabled={!experienceId}>
             <Save size={14} /> Save
           </button>
+          {experienceId && page ? <ExportMenu page={page} /> : null}
+          <button
+            type="button"
+            className="eb-btn eb-btn--ghost"
+            onClick={() => setShowHelp(true)}
+            title="Open the builder guide"
+          >
+            <HelpCircle size={14} /> Help
+          </button>
           {isPublished ? (
             <button type="button" className="eb-btn eb-btn--ghost" onClick={handleUnpublish}>Unpublish</button>
           ) : (
@@ -1831,6 +2146,8 @@ export default function ExperienceBuilder() {
           onClose={() => setMediaFor(null)}
         />
       ) : null}
+
+      {showHelp ? <HelpPanel onClose={() => setShowHelp(false)} /> : null}
 
       {showCreate ? (
         <CreateModal

@@ -92,12 +92,17 @@ const geometry = (pg) => pg.evaluate(() => Array.from(document.querySelectorAll(
   };
 }));
 
+// Reports the element type together with the measured overflow so a failure
+// names the culprit and the amount of text that was cut off.
 const overflows = (pg) => pg.evaluate(() => Array.from(document.querySelectorAll(".exr-element"))
-  .filter((n) => {
+  .map((n) => {
     const t = n.querySelector(".exr-autofit");
-    return t && Math.ceil(t.scrollHeight) > n.offsetHeight + 2;
+    if (!t) return null;
+    const need = Math.ceil(t.scrollHeight);
+    const have = n.offsetHeight;
+    return need > have + 2 ? n.dataset.elementType + ":" + need + ">" + have : null;
   })
-  .map((n) => n.dataset.elementType));
+  .filter(Boolean));
 
 const status = (page) => page.evaluate(() => (document.querySelector(".eb-status")?.textContent || "").trim());
 
@@ -183,6 +188,14 @@ async function run() {
     if (cb && !cb.checked) cb.click();
   });
   await sleep(500);
+  // Ticking the box in the panel has to write into the document. If it only
+  // flipped component state the canvas would look right and the tick would be
+  // gone the moment the page was reopened.
+  const canvasTick = await page.evaluate(() => {
+    const box = document.querySelector('.exr-element[data-element-type="checkbox"] input[type="checkbox"]');
+    return box ? box.checked : null;
+  });
+  check("ticking the checkbox reaches the canvas", canvasTick === true, String(canvasTick));
 
   console.log("== automatic layout ==");
   const beforeAuto = await geometry(page);
@@ -263,7 +276,8 @@ async function run() {
     });
     check(device + ": nothing overflows the page", measure.widest <= measure.pageWidth + 2,
       "widest " + Math.round(measure.widest) + " / page " + Math.round(measure.pageWidth));
-    check(device + ": no clipped text", (await overflows(page)).length === 0);
+    const clipped = await overflows(page);
+    check(device + ": no clipped text", clipped.length === 0, JSON.stringify(clipped));
   }
 
 
@@ -377,6 +391,7 @@ async function run() {
     shape: document.querySelectorAll(".exr-shape[class*='exr-shape--']").length,
     divider: document.querySelector('.exr-element[data-element-type="divider"]')?.offsetHeight || null,
     checkbox: Boolean(document.querySelector('.exr-element[data-element-type="checkbox"]')),
+    checkboxTicked: document.querySelector('.exr-element[data-element-type="checkbox"] input[type="checkbox"]')?.checked ?? null,
     link: Boolean(document.querySelector(".exr-link")),
     count: document.querySelectorAll(".exr-element").length,
     layout: document.querySelector("#page-layout")?.value || null,
@@ -388,6 +403,7 @@ async function run() {
   check("shape survives reload", restored.shape > 0);
   check("divider keeps its 1px height", restored.divider !== null && restored.divider <= 2, restored.divider + "px");
   check("checkbox survives reload", restored.checkbox);
+  check("the checkbox tick survives reload", restored.checkboxTicked === true, String(restored.checkboxTicked));
   check("link survives reload", restored.link);
   check("no elements were lost", restored.count >= 6, restored.count + " elements");
   check("layout mode survives reload", restored.layout === "auto", restored.layout + " / " + restored.layoutLabel);

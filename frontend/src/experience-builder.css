@@ -181,6 +181,13 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  /* Fixed width so switching between Draft / Unsaved changes / Saving… / Saved
+     never changes the top bar's width. The status is the only text that varies
+     between those states, so a fluid width made the bar wrap and unwrap, which
+     shoved the whole canvas down ~28px and made a saved design appear to move
+     on reload. The label can spill past this box on one line without ever
+     changing the layout. */
+  width: 160px;
   font-size: 0.66rem;
   white-space: nowrap;
 }
@@ -577,23 +584,18 @@
 .exr-shape--rounded { border-radius: 24px; }
 .exr-shape--circle { border-radius: 50%; aspect-ratio: 1; }
 .exr-shape--ellipse { border-radius: 50%; }
+/* Triangles are drawn with clip-path so the shape scales with whatever box the
+   author sizes, instead of the old fixed-size border triangle that always drew
+   100x50 no matter the element. */
 .exr-shape--triangle {
-  width: 0;
-  height: 0;
-  border-right: calc(var(--shape-half, 50px)) solid transparent;
-  border-bottom: calc(var(--shape-full, 100px)) solid currentColor;
-  border-left: calc(var(--shape-half, 50px)) solid transparent;
-  background: transparent;
-  color: inherit;
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
 }
 .exr-shape--star {
-  background: transparent;
-  color: inherit;
   clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
 }
-.exr-shape--line { height: 2px; align-self: center; }
+/* A "line" shape needs no override: the base .exr-shape rule fills the frame,
+   so the element's own height is the line's thickness. */
 .exr-shape--arrow {
-  background: transparent;
   clip-path: polygon(0 42%, 68% 42%, 68% 18%, 100% 50%, 68% 82%, 68% 58%, 0 58%);
 }
 
@@ -603,10 +605,10 @@
 .exr-table-wrap { width: 100%; height: 100%; overflow: auto; }
 .exr-table { width: 100%; border-collapse: collapse; font-family: "Poppins", system-ui, sans-serif; }
 .exr-table th,
-.exr-table td { border: 1px solid #d9d8cf; padding: 10px 12px; vertical-align: top; }
+.exr-table td { border: 1px solid #d9d8cf; padding: 10px 12px; vertical-align: top; overflow-wrap: anywhere; }
 .exr-table th { font-weight: 600; background: #f4f6f4; }
-.exr-table tr { border: 0; }
-.exr-table th { border: 1px solid #d9d8cf; }
+.exr-table a { color: #24534a; }
+.exr-page--view .exr-table a:hover { text-decoration: underline; }
 
 /* ---------------- help + export ---------------- */
 
@@ -827,8 +829,6 @@
 .eb-input:focus { border-color: var(--accent); outline: none; }
 .eb-input--area { resize: vertical; line-height: 1.5; }
 
-.eb-color {
-
 /* ---------------- preview ---------------- */
 
 .eb-preview { display: flex; width: 100%; flex-direction: column; min-height: 0; }
@@ -1034,6 +1034,12 @@
   .eb-shell * { transition: none !important; animation: none !important; }
 }
 
+/* Colour swatch button. Its body used to sit unattached below, which left the
+   preview, modal and responsive rules above nested inside a stray `.eb-color {`
+   block - browsers dutifully scoped them under a selector that never matches,
+   so the create/media/help dialogs rendered inline at the bottom of the page
+   instead of as overlays. Keep this rule closed and self-contained. */
+.eb-color {
   width: 30px;
   height: 30px;
   flex: 0 0 auto;

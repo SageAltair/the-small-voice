@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as ICONS from "lucide-react";
-import { resolveEmbed, EMBED_IFRAME, isSafeMediaUrl } from "../../experience/embedUtils";
+import { resolveEmbed, EMBED_IFRAME } from "../../experience/embedUtils";
 import { getImageUrl } from "../../services/api";
 import { pageHeight, layoutPage, PAGE_BOTTOM_PADDING } from "../../experience/designModel";
 
@@ -24,9 +24,24 @@ function styleToCss(style = {}, extra = {}) {
   // deliberately absent: it is a unitless ratio, and turning 1.1 into "1.1px"
   // collapses the line box and made every text measurement wrong.
   const unitKeys = ["fontSize", "letterSpacing", "borderRadius", "padding"];
+  // Margin belongs to the element frame (it is spacing *around* the box, and
+  // the frame is the box), so it must not also be applied to the content
+  // inside - that would double the offset.
+  const marginKeys = new Set(["margin", "marginTop", "marginRight", "marginBottom", "marginLeft"]);
 
   Object.entries(style || {}).forEach(([key, value]) => {
     if (value === null || value === undefined || value === "") return;
+    if (marginKeys.has(key)) return;
+
+    // Border width/colour/style are edited separately in the properties panel
+    // but rendered as a single CSS `border` shorthand.
+    if (key === "borderWidth" || key === "borderColor" || key === "borderStyle") {
+      const width = Number(style.borderWidth) || 0;
+      if (width > 0) {
+        css.border = `${px(width)} ${style.borderStyle || "solid"} ${style.borderColor || "#24251f"}`;
+      }
+      return;
+    }
 
     if (passthrough[key]) {
       css[passthrough[key]] = value;
@@ -42,6 +57,27 @@ function styleToCss(style = {}, extra = {}) {
   return { ...css, ...extra };
 }
 
+/** Margin values ride on the element frame, not on the content inside it. */
+function frameMargin(style = {}) {
+  const css = {};
+  ["marginTop", "marginRight", "marginBottom", "marginLeft"].forEach((key) => {
+    const value = style[key];
+    if (value === null || value === undefined || value === "" || Number(value) === 0) return;
+    css[key] = typeof value === "number" ? px(value) : value;
+  });
+  return css;
+}
+
+/** Accept https links, site-relative paths and anchors - matching the validator. */
+function linkHref(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return "#";
+  if (/^(https?:\/\/|\/(?!\/)|#|mailto:|tel:)/i.test(value)) return value;
+  // A bare domain like example.com/page still counts as a link.
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$|\?|#)/i.test(value)) return `https://${value}`;
+  return "#";
+}
+
 function Placeholder({ label, tone = "muted" }) {
   return <div className={`exr-placeholder exr-placeholder--${tone}`}>{label}</div>;
 }
@@ -54,9 +90,49 @@ function MediaSlot({ label, tone, onOpen }) {
   );
 }
 
+/**
+ * Checkbox behaviour lives in its own component so the tick state is a real,
+ * unconditional hook. On the canvas the tick is written straight into the
+ * element (so it survives save/reopen); on a published page a local copy
+ * flips so a reader can tick it without anyone listening for actions.
+ */
+function CheckboxElement({ element, mode, onToggle, onAction }) {
+  const { content = {}, style = {} } = element;
+  const stored = Boolean(content.checked);
+  const editable = mode === "edit";
+  // On the canvas the document value is the truth. On a published page the
+  // reader's own tick is kept locally, and `null` means "not touched yet", so
+  // the authored value still shows through until someone flips it.
+  const [localTick, setLocalTick] = useState(null);
+  const ticked = localTick ?? stored;
+
+  return (
+    <div className="exr-checkbox">
+      {/* Pointer/click are stopped so ticking the box never starts a canvas
+          drag or steals the gesture from the input itself. */}
+      <input
+        type="checkbox"
+        checked={editable ? stored : ticked}
+        onChange={(event) => {
+          const next = event.target.checked;
+          if (editable) {
+            onToggle?.(element, next);
+            return;
+          }
+          setLocalTick(next);
+          onAction?.(element, { checked: next });
+        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      />
+      <span className="exr-autofit" style={styleToCss(style)}>{content.text || ""}</span>
+    </div>
+  );
+}
+
 
 /** One element's visual body. Split out so each type stays readable. */
-function ElementBody({ element, mode, onAction, onRequestMedia }) {
+function ElementBody({ element, mode, onAction, onRequestMedia, onToggle }) {
   const { type, content = {}, style = {} } = element;
   const editable = mode === "edit";
   const openMedia = (event) => {
@@ -144,13 +220,17 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
 
     case "link": {
       const label = content.text || "Link";
-      if (editable) return <span className="exr-link" style={styleToCss(style)}>{label}</span>;
+      const href = linkHref(content.href);
+      if (editable) return <span className="exr-link exr-autofit" style={styleToCss(style)}>{label}</span>;
+      // The properties panel accepts https:// links, /path links and #anchors,
+      // so the anchor honours all three. `newTab` decides the target.
+      const opensNew = content.newTab !== false && /^https?:\/\//i.test(href);
       return (
         <a
-          className="exr-link"
-          href={isSafeMediaUrl(content.href) ? content.href : "#"}
-          target="_blank"
-          rel="noreferrer noopener"
+          className="exr-link exr-autofit"
+          href={href}
+          target={opensNew ? "_blank" : undefined}
+          rel={opensNew ? "noreferrer noopener" : undefined}
           style={styleToCss(style)}
           onClick={stop}
         >
@@ -187,21 +267,7 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
       );
 
     case "checkbox":
-      return (
-        <label className="exr-checkbox" style={styleToCss(style)} onClick={stop}>
-          <input
-            type="checkbox"
-            checked={Boolean(content.checked)}
-            readOnly={editable}
-            tabIndex={editable ? -1 : 0}
-            onChange={(event) => {
-              if (editable) return;
-              onAction?.(element, { checked: event.target.checked });
-            }}
-          />
-          <span>{content.text || "Option"}</span>
-        </label>
-      );
+      return <CheckboxElement element={element} mode={mode} onToggle={onToggle} onAction={onAction} />;
 
 
     case "question":
@@ -246,21 +312,13 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
       return <div className="exr-divider" style={styleToCss(style)} />;
 
     case "shape": {
-      const shape = content.shape || "rectangle";
-      // Triangle and arrow are drawn with borders / clip-paths, so they take
-      // the frame size as CSS variables instead of width and height.
-      const box = styleToCss(
-        shape === "triangle" || shape === "arrow"
-          ? { background: undefined, border: undefined, borderRadius: undefined }
-          : style,
-        {
-          "--shape-half": `${Math.round((element.width || 100) / 2)}px`,
-          "--shape-full": `${Math.round(element.height || 100)}px`,
-        },
-      );
-      return (
-        <div className={`exr-shape exr-shape--${shape}`} style={box} role="presentation" />
-      );
+      const shape = ["rectangle", "rounded", "circle", "ellipse", "triangle", "star", "line", "arrow"].includes(content.shape)
+        ? content.shape
+        : "rectangle";
+      // Every shape fills its element frame (clip-path draws the non-box
+      // outlines), so resizing the element resizes the shape and the fill
+      // colour in the properties panel is what paints it.
+      return <div className={`exr-shape exr-shape--${shape}`} style={styleToCss(style)} role="presentation" />;
     }
 
     case "icon": {
@@ -283,14 +341,43 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
       const rows = content.rows || [];
       const align = style?.textAlign || "left";
       const cellStyle = { textAlign: align, borderColor: style?.borderColor, padding: style?.padding };
+      // A cell that is a bare URL renders as a real link so tables can carry
+      // references without an extra link element.
+      const renderCell = (cell) => {
+        const text = cell === null || cell === undefined ? "" : String(cell);
+        if (/^https?:\/\/\S+$/i.test(text.trim())) {
+          return <a href={text.trim()} target="_blank" rel="noreferrer noopener">{text}</a>;
+        }
+        return text;
+      };
+      // Optional per-column widths (px). When any is set the table uses a
+      // fixed layout so the authored widths are what actually render.
+      const colWidths = content.colWidths || [];
+      const hasWidths = colWidths.some((width) => Number(width) > 0);
+      const headBackground = content.headerBackground || style?.background || "#f4f6f4";
       return (
-        <div className="exr-table-wrap">
-          <table className="exr-table" style={{ fontSize: style?.fontSize || 16, color: style?.color }}>
+        <div className="exr-table-wrap exr-autofit">
+          <table
+            className="exr-table"
+            style={{
+              fontSize: style?.fontSize || 16,
+              color: style?.color,
+              background: style?.background,
+              tableLayout: hasWidths ? "fixed" : undefined,
+            }}
+          >
+            {hasWidths && columns.length ? (
+              <colgroup>
+                {columns.map((_, index) => (
+                  <col key={`w-${index}`} style={colWidths[index] ? { width: `${Number(colWidths[index])}px` } : undefined} />
+                ))}
+              </colgroup>
+            ) : null}
             {content.headerRow !== false && columns.length ? (
               <thead>
                 <tr>
                   {columns.map((cell, index) => (
-                    <th key={`h-${index}`} style={{ ...cellStyle, background: style?.background }}>{cell}</th>
+                    <th key={`h-${index}`} style={{ ...cellStyle, background: headBackground }}>{renderCell(cell)}</th>
                   ))}
                 </tr>
               </thead>
@@ -298,8 +385,8 @@ function ElementBody({ element, mode, onAction, onRequestMedia }) {
             <tbody>
               {rows.map((row, rowIndex) => (
                 <tr key={`r-${rowIndex}`}>
-                  {(row.length ? row : columns.map(() => "")).map((cell, cellIndex) => (
-                    <td key={`c-${cellIndex}`} style={cellStyle}>{cell}</td>
+                  {(columns.length ? columns.map((_, index) => (row || [])[index] ?? "") : (row || [])).map((cell, cellIndex) => (
+                    <td key={`c-${cellIndex}`} style={cellStyle}>{renderCell(cell)}</td>
                   ))}
                 </tr>
               ))}
@@ -352,6 +439,7 @@ export default function ExperienceRenderer({
   onSelect,
   onAction,
   onRequestMedia,
+  onToggle,
   onTextResize,
   viewportWidth,
   renderChrome,
@@ -444,6 +532,10 @@ export default function ExperienceRenderer({
             zIndex: element.zIndex,
             transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
             opacity: element.style?.opacity,
+            // Margin is authored spacing around the element; it rides on the
+            // frame so the selection outline and every downstream layout see
+            // the same box the reader sees.
+            ...frameMargin(element.style),
           }}
           data-element-id={element.id}
           data-element-type={element.type}
@@ -456,7 +548,7 @@ export default function ExperienceRenderer({
               : undefined
           }
         >
-          <ElementBody element={element} mode={mode} onAction={onAction} onRequestMedia={onRequestMedia} />
+          <ElementBody element={element} mode={mode} onAction={onAction} onRequestMedia={onRequestMedia} onToggle={onToggle} />
           {mode === "edit" && renderChrome ? renderChrome(element) : null}
         </div>
       ))}

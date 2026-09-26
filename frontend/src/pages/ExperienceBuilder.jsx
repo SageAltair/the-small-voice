@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle, ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Check, ChevronLeft, Copy, Eye,
-  Grid3x3, HelpCircle, Image as ImageIcon, Loader2, Lock, Maximize2, Plus,
-  Redo2, RotateCw, Save, Send, Trash2, Undo2, Unlock, ZoomIn, ZoomOut,
+  Grid3x3, HelpCircle, Image as ImageIcon, Loader2, Lock, Maximize2, Monitor, Plus,
+  Redo2, RotateCw, Save, Send, Smartphone, Tablet, Trash2, Undo2, Unlock, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
@@ -150,8 +150,8 @@ function CreateModal({ busy, error, onCreate, onClose }) {
 function SaveIndicator({ status, error, onRetry }) {
   if (status === "error") {
     return (
-      <span className="eb-status eb-status--error" role="alert">
-        <AlertCircle size={13} /> Unable to save
+      <span className="eb-status eb-status--error" role="alert" title={error || undefined}>
+        <AlertCircle size={13} /> Save failed
         <button type="button" className="eb-status__retry" onClick={onRetry}>Retry</button>
       </span>
     );
@@ -461,6 +461,8 @@ function SelectionChrome({ element, selected, onDrag, onResize, onRotate, action
  * admin checks here is what a visitor gets. The device switch changes the
  * viewport the design is drawn at, which reflows and clamps the elements.
  */
+const DEVICE_ICONS = { phone: Smartphone, tablet: Tablet, desktop: Monitor };
+
 function PreviewStage({ doc, pageIndex, onPage }) {
   const viewportRef = useRef(null);
   const [zoom, setZoom] = useState(0.4);
@@ -480,16 +482,21 @@ function PreviewStage({ doc, pageIndex, onPage }) {
     <div className="eb-preview">
       <div className="eb-preview__bar">
         <div className="eb-seg" role="group" aria-label="Preview device">
-          {DEVICE_FRAMES.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`eb-seg ${device === item.id ? "is-active" : ""}`}
-              onClick={() => setDevice(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
+          {DEVICE_FRAMES.map((item) => {
+            const Icon = DEVICE_ICONS[item.id];
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`eb-seg ${device === item.id ? "is-active" : ""}`}
+                onClick={() => setDevice(item.id)}
+                title={`Preview as ${item.label}`}
+              >
+                {Icon ? <Icon size={13} /> : null}
+                {item.label}
+              </button>
+            );
+          })}
         </div>
         {doc.pages.length > 1 ? (
           <div className="eb-preview__pages">
@@ -1128,6 +1135,20 @@ export default function ExperienceBuilder() {
     setDoc(value);
   }, []);
 
+  // Dev-only inspection hook: lets automated checks compare the live document
+  // with the undo history to catch divergence between the two.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return undefined;
+    window.__ebDebug = () => ({
+      doc: docRef.current,
+      present: historyRef.current?.present,
+      interacting: Boolean(historyRef.current?.isInteracting),
+      dirty: dirtyRef.current,
+      status,
+    });
+    return () => { delete window.__ebDebug; };
+  }, [status]);
+
   const page = doc?.pages[pageIndex] || null;
   const selected = useMemo(
     () => (page ? page.elements.filter((element) => selectedIds.includes(element.id)) : []),
@@ -1190,14 +1211,33 @@ export default function ExperienceBuilder() {
 
   /* ---------------- persistence ---------------- */
 
+  /**
+   * Close an open drag/resize transaction before the document is read.
+   *
+   * A gesture that never sees its pointerup (released outside the window,
+   * a cancelled touch, an automated test dispatching synthetic events) leaves
+   * the undo history holding a pre-gesture snapshot while the canvas shows the
+   * post-gesture geometry. Saving that mismatch would silently roll the design
+   * back, so every save path flushes the live document first.
+   */
+  const flushInteraction = useCallback(() => {
+    const history = historyRef.current;
+    if (!history?.isInteracting) return;
+    history.commit(docRef.current || history.present);
+    applyDoc(history.present);
+    syncHistory();
+  }, [applyDoc, syncHistory]);
+
   const persist = useCallback(async (document) => {
     if (!experienceId) return;
+    flushInteraction();
+    const doc = historyRef.current?.present || document;
     const seq = ++saveSeq.current;
     setStatus("saving");
     setSaveError("");
 
     try {
-      const saved = await api.saveDocument(experienceId, toPayload(document));
+      const saved = await api.saveDocument(experienceId, toPayload(doc));
       // A slower, superseded request must not overwrite the newer result.
       if (seq !== saveSeq.current) return;
       dirtyRef.current = false;
@@ -1215,7 +1255,7 @@ export default function ExperienceBuilder() {
       setStatus("error");
       setSaveError(err.message || "Could not save your changes.");
     }
-  }, [experienceId, mutate]);
+  }, [experienceId, mutate, flushInteraction]);
 
   useEffect(() => {
     if (status !== "dirty") return undefined;
@@ -1232,6 +1272,10 @@ export default function ExperienceBuilder() {
   }, [persist]);
 
   /* ---------------- load ---------------- */
+
+  // Bumped by the boot screen's "Try again" so a failed load can be retried
+  // without reloading the whole page.
+  const [loadNonce, setLoadNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -1270,7 +1314,7 @@ export default function ExperienceBuilder() {
 
     load();
     return () => { cancelled = true; };
-  }, [experienceId, syncHistory]);
+  }, [experienceId, syncHistory, loadNonce]);
 
 
   /* ---------------- element operations ---------------- */
@@ -1693,6 +1737,25 @@ export default function ExperienceBuilder() {
     endDrag(event);
   }, [endDrag]);
 
+  /**
+   * Guarantee every gesture ends, even when the pointerup never reaches the
+   * viewport (released over another window, a cancelled touch, synthetic
+   * events). Without this a drag could stay "open" and its geometry would be
+   * missing from the next save.
+   */
+  useEffect(() => {
+    const finish = (event) => {
+      if (dragRef.current) endDrag(event);
+      panRef.current = null;
+    };
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+    return () => {
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+  }, [endDrag]);
+
 
   /* ---------------- undo / redo ---------------- */
 
@@ -1937,7 +2000,14 @@ export default function ExperienceBuilder() {
       <div className="eb-boot eb-boot--error">
         <AlertCircle size={18} />
         <p>{bootError}</p>
-        <button type="button" className="eb-btn eb-btn--primary" onClick={() => setBootError("")}>Dismiss</button>
+        <div className="eb-row" style={{ maxWidth: 320 }}>
+          <button type="button" className="eb-btn eb-btn--primary" onClick={() => setLoadNonce((n) => n + 1)}>
+            Try again
+          </button>
+          <button type="button" className="eb-btn eb-btn--ghost" onClick={() => setParams(new URLSearchParams())}>
+            Back to list
+          </button>
+        </div>
       </div>
     );
   }
@@ -2074,6 +2144,7 @@ export default function ExperienceBuilder() {
                     selectedIds={selectedIds}
                     onSelect={onElementPointerDown}
                     onRequestMedia={(element) => setMediaFor(element)}
+                    onToggle={(element, checked) => patchContent([element.id], { checked })}
                     onTextResize={applyTextGrowth}
                     renderChrome={(element) => (
                       <SelectionChrome

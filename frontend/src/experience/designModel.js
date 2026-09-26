@@ -12,6 +12,17 @@ export const MIN_SIZE = 8;
 export const DEFAULT_GRID = 8;
 
 /**
+ * Smallest type a reflowed page will draw.
+ *
+ * A design is authored at its own width, so a phone preview scales type down
+ * with everything else; this floor stops copy disappearing entirely at
+ * thumbnail scale. It is only ever applied downwards (never above the size the
+ * author chose) and stays low enough to fit inside scaled frames, so it cannot
+ * itself cause text to overflow its box.
+ */
+export const MIN_FONT_SIZE = 6;
+
+/**
  * Per-type minimum sizes. A divider is a hairline, so the global 8px floor
  * made it impossible to draw a 2px rule - the resize handles refused to go
  * below 8 even though the stored value was legal.
@@ -278,6 +289,10 @@ export function normalizeElement(raw, index = 0) {
     isLocked: raw?.isLocked ?? raw?.is_locked ?? false,
     isInteractive: raw?.isInteractive ?? raw?.is_interactive ?? definition.interactive ?? false,
     sectionId: raw?.sectionId || "",
+    // Per-element responsive hints (e.g. "50% of the page"). These used to be
+    // dropped on load, so a responsive design silently reverted to fixed
+    // widths the moment it was re-opened.
+    responsive: { ...(raw?.responsive || {}) },
     accessibility: { ...(raw?.accessibility || {}) },
     actions: (raw?.actions || []).map((action) => ({
       trigger: action.trigger || "click",
@@ -399,12 +414,24 @@ export function reflowElements(elements, pageWidth, targetWidth) {
       width: Math.round(Math.max(minSizeFor(element.type), element.width * ratio)),
       height: Math.round(Math.max(minSizeFor(element.type), element.height * ratio)),
     };
-    // Font size scales with the box so text keeps its proportions and still
-    // wraps instead of overflowing a now-smaller frame.
-    const size = Number(element.style?.fontSize);
+    // Type and the space around it scale with the box so text keeps its
+    // proportions and still fits the frame it was authored in. Padding needs
+    // the same treatment as the font: 12px of cell padding is a fifth of a
+    // 52px-tall input but taller than a 16px-tall line of copy, and leaving it
+    // at its authored size is what pushed tables and labelled boxes out of a
+    // narrow preview. The type floor only stops copy vanishing at thumbnail
+    // scale, so it never applies above the size the author chose.
+    const style = element.style || {};
+    const sized = {};
+    const size = Number(style.fontSize);
     if (Number.isFinite(size) && size > 0) {
-      scaled.style = { ...element.style, fontSize: Math.max(10, Math.round(size * ratio)) };
+      sized.fontSize = Math.max(Math.min(MIN_FONT_SIZE, size), Math.round(size * ratio));
     }
+    const padding = Number(style.padding);
+    if (Number.isFinite(padding) && padding > 0) {
+      sized.padding = Math.max(1, Math.round(padding * ratio));
+    }
+    if (Object.keys(sized).length) scaled.style = { ...style, ...sized };
     return scaled;
   });
 }
@@ -441,13 +468,17 @@ export function layoutPage(page, targetWidth) {
           Math.min(responsiveWidth(element, width), width - PAGE_SIDE_PADDING * 2),
         );
         const gap = element.type === "divider" ? 24 : 28;
+        // Margin is authored spacing around the element: in the automatic flow
+        // it adds to the gap above and below so the layout respects it.
+        const margin = Number(element.style?.marginTop) || 0;
+        const marginBottom = Number(element.style?.marginBottom) || 0;
         const next = {
           ...element,
           x: Math.round((width - boxWidth) / 2),
           y: Math.round(cursorY),
           width: Math.round(boxWidth),
         };
-        cursorY += element.height + gap;
+        cursorY += element.height + gap + margin + marginBottom;
         return next;
       });
   }
@@ -562,6 +593,7 @@ export function toPayload(document) {
         isLocked: element.isLocked,
         isInteractive: element.isInteractive,
         sectionId: element.sectionId,
+        responsive: element.responsive,
         accessibility: element.accessibility,
         actions: element.actions,
       })),

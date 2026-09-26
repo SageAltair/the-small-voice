@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_PAGE_SETTINGS, PAGE_PRESETS, alignElements, buildDocument, createElement,
+  DEFAULT_PAGE_SETTINGS, MIN_FONT_SIZE, PAGE_PRESETS, alignElements, buildDocument, createElement,
   createPage, distributeElements, layoutPage, normalizeElement, normalizePageSettings, pageHeight,
   reorderStack, reorderZ, selectionBounds, snapPosition, toPayload, topZ,
 } from "../designModel.js";
@@ -329,6 +329,41 @@ describe("automatic layout", () => {
     const placed = layoutPage(flowPage("custom"), 1080);
     expect(placed.find((element) => element.id === "a").y).toBe(1700);
     expect(placed.find((element) => element.id === "b").y).toBe(120);
+  });
+
+  it("scales type and the padding around it down to a narrow viewport", () => {
+    // A phone draws a 1080px design at 390px. Type *and* padding have to scale
+    // with the box: the authored 12px of table cell padding is a third of a
+    // 40px-tall row, so keeping it while the frame shrinks is what pushed rows
+    // out of their own box in the phone preview.
+    const page = createPage({
+      pageSettings: { layoutMode: "custom", width: 1080, height: 1920 },
+      elements: [{ ...box(64, 80, 640, 240, 0, "table"), type: "table", style: { fontSize: 16, padding: 12 } }],
+    });
+    const ratio = 390 / 1080;
+    const [reflowed] = layoutPage(page, 390);
+    expect(reflowed.height).toBe(Math.round(240 * ratio));
+    expect(reflowed.style.fontSize).toBe(Math.max(MIN_FONT_SIZE, Math.round(16 * ratio)));
+    expect(reflowed.style.padding).toBe(Math.round(12 * ratio));
+    // Type can never end up bigger than the frame it has to live in.
+    expect(reflowed.style.fontSize).toBeLessThan(reflowed.height);
+  });
+
+  it("keeps type inside its frame and never inflates it past the authored size", () => {
+    const page = createPage({
+      pageSettings: { layoutMode: "custom", width: 1440, height: 900 },
+      elements: [
+        { ...box(64, 64, 400, 60, 0, "copy"), type: "text", style: { fontSize: 16 } },
+        { ...box(64, 200, 400, 20, 1, "fine"), type: "text", style: { fontSize: 5 } },
+      ],
+    });
+    // 1440 -> 390 is far below the legibility floor, so the floor is what the
+    // copy lands on ...
+    expect(layoutPage(page, 390).find((element) => element.id === "copy").style.fontSize).toBe(MIN_FONT_SIZE);
+    // ... but it is a floor on shrinking only: a tiny authored size is kept.
+    expect(layoutPage(page, 390).find((element) => element.id === "fine").style.fontSize).toBe(5);
+    // Reflowing to the design's own width is a no-op, so the canvas is exact.
+    expect(layoutPage(page, 1440).find((element) => element.id === "copy").style.fontSize).toBe(16);
   });
 
   it("grows an endless page past its declared height", () => {

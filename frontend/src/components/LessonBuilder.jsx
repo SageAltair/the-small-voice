@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Copy, Eye, ImagePlus,
-  ListChecks, Pencil, Plus, RefreshCw, Save, Trash2, Undo2, X,
+  AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Copy, Eye, ExternalLink, Film, ImagePlus,
+  Link2, ListChecks, Music, Pencil, Plus, RefreshCw, Save, Trash2, Undo2, X,
 } from "lucide-react";
 import ValidationReport from "./LearnValidation";
-import { getImageUrl, toMediaPath, uploadAdminImage } from "../services/api";
+import { getAdminData, getImageUrl, toMediaPath, uploadAdminImage, uploadAdminMedia } from "../services/api";
+import { AUDIO_MIME_TYPES, VIDEO_MIME_TYPES } from "../experience/mediaUtils";
 import {
   archiveAdminLesson, getAdminLesson, publishAdminLesson, saveAdminLesson,
 } from "../services/learnApi";
@@ -56,6 +57,59 @@ const FALLBACK_CATALOG = {
 const LANGUAGE_LABELS = { en: "English", sw: "Swahili" };
 const CALLOUT_TONES = ["info", "encouragement", "warning"];
 const RESOURCE_TYPES = ["reel", "video", "audio", "book", "carousel", "quote", "image", "infographic", "document"];
+
+// ---- video/audio media inside blocks -------------------------------------
+// Files upload through POST /admin/upload-media into the same shared uploads
+// mount as every other file in the app; the block then keeps only the
+// resulting "/uploads/..." path, exactly like a pasted link does. Both routes
+// (upload and URL) stay available, and either can be replaced or removed.
+const LESSON_MEDIA = {
+  video: {
+    accept: "video/mp4,video/webm,video/ogg,video/quicktime",
+    extensions: ["mp4", "webm", "ogv", "ogg", "mov", "m4v"],
+    formats: "MP4, WebM, OGG or MOV",
+    mimeTypes: VIDEO_MIME_TYPES,
+  },
+  audio: {
+    accept: "audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/mp4,audio/aac,audio/flac",
+    extensions: ["mp3", "wav", "ogg", "oga", "m4a", "aac", "flac"],
+    formats: "MP3, WAV, OGG, M4A, AAC or FLAC",
+    mimeTypes: AUDIO_MIME_TYPES,
+  },
+};
+const MAX_LESSON_MEDIA_BYTES = 100 * 1024 * 1024;
+
+/** Client-side gate before an upload: format first, then size. */
+function validateLessonMedia(file, mode) {
+  const spec = LESSON_MEDIA[mode];
+  if (!file) return { ok: false, reason: "Choose a file first." };
+  const type = (file.type || "").toLowerCase();
+  const extension = (file.name || "").split(".").pop().toLowerCase();
+  // Some browsers report an empty type; fall back to the extension rather than
+  // refusing a legitimate file. The server checks the upload again anyway.
+  const ok = type ? spec.mimeTypes.includes(type) : spec.extensions.includes(extension);
+  if (!ok) return { ok: false, reason: `Unsupported ${mode}. Use ${spec.formats}.` };
+  if (file.size > MAX_LESSON_MEDIA_BYTES) {
+    return { ok: false, reason: `${mode === "video" ? "Video" : "Audio"} files must be 100 MB or smaller.` };
+  }
+  return { ok: true };
+}
+
+/** True for URLs a native <video>/<audio> player can play directly. */
+function isDirectMediaUrl(url) {
+  if (!url) return false;
+  if (url.startsWith("/uploads/")) return true;
+  const path = url.split("?")[0].toLowerCase();
+  return [...LESSON_MEDIA.video.extensions, ...LESSON_MEDIA.audio.extensions].some((ext) => path.endsWith(`.${ext}`));
+}
+
+/** Does an existing site resource match this media mode? */
+function isMediaResource(resource, mode) {
+  const type = String(resource.type || resource.resource_type || "").toLowerCase();
+  const path = String(resource.url || "").split("?")[0].toLowerCase();
+  const extension = path.split(".").pop() || "";
+  return type === mode || LESSON_MEDIA[mode].extensions.includes(extension);
+}
 
 const FIELD_LABELS = {
   text: "Text", reference: "Reference", version: "Bible version", attribution: "Attribution",
@@ -171,6 +225,8 @@ export default function LessonBuilder({ lessonId, catalog, onNotice = () => {}, 
   const [languageChoice, setLanguageChoice] = useState(null);
   const [openBlock, setOpenBlock] = useState(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Which block's "existing files" picker is open (null when none).
+  const [mediaLibrary, setMediaLibrary] = useState(null);
 
   const blockTypes = useMemo(
     () => (catalog?.block_types?.length ? catalog.block_types : FALLBACK_CATALOG.block_types),
@@ -408,6 +464,45 @@ export default function LessonBuilder({ lessonId, catalog, onNotice = () => {}, 
     } finally {
       setBusy(false);
       event.target.value = "";
+    }
+  }
+
+  /** Upload a video/audio file chosen from the admin's device. */
+  async function uploadBlockMedia(index, mode, event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const check = validateLessonMedia(file, mode);
+    if (!check.ok) {
+      setError(check.reason);
+      event.target.value = "";
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      // Same store as the image blocks: /uploads/... is what the API accepts.
+      updateBlockConfig(index, "url", toMediaPath(await uploadAdminMedia(file)));
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  }
+
+  /** Pick from media already on the site instead of uploading a second copy. */
+  async function openMediaLibrary(index, mode) {
+    if (mediaLibrary?.index === index) {
+      setMediaLibrary(null);
+      return;
+    }
+    setMediaLibrary({ index, mode, items: [], loading: true, error: "" });
+    try {
+      const overview = await getAdminData();
+      const items = (overview.resources || []).filter((item) => item.url && isMediaResource(item, mode));
+      setMediaLibrary({ index, mode, items, loading: false, error: "" });
+    } catch (err) {
+      setMediaLibrary({ index, mode, items: [], loading: false, error: messageOf(err) });
     }
   }
 
@@ -679,6 +774,20 @@ export default function LessonBuilder({ lessonId, catalog, onNotice = () => {}, 
                               </label>
                             );
                           }
+                          if (key === "url" && (block.block_type === "video" || block.block_type === "audio")) {
+                            return (
+                              <label key={key} className="wide">{CONFIG_LABELS[key]}
+                                <input
+                                  value={value || ""}
+                                  onChange={(event) => updateBlockConfig(index, key, event.target.value)}
+                                  placeholder={block.block_type === "video" ? "https://www.youtube.com/watch?v=..." : "https://..."}
+                                />
+                                <small className="field-hint">
+                                  Paste a link, upload a file from your device, or choose one already on the site — all three are below.
+                                </small>
+                              </label>
+                            );
+                          }
                           return (
                             <label key={key} className="wide">{CONFIG_LABELS[key] || key}
                               <input
@@ -699,6 +808,104 @@ export default function LessonBuilder({ lessonId, catalog, onNotice = () => {}, 
                             </label>
                             {block.config?.url && (
                               <img src={getImageUrl(block.config.url) || block.config.url} alt="Block picture preview" />
+                            )}
+                          </div>
+                        )}
+
+                        {(block.block_type === "video" || block.block_type === "audio") && (
+                          <div className="cms-media-row learn-media-row">
+                            <label className="cms-upload">
+                              {block.block_type === "video" ? <Film size={18} /> : <Music size={18} />}
+                              <span>
+                                {busy
+                                  ? "Uploading…"
+                                  : block.config?.url
+                                    ? `Replace ${block.block_type}`
+                                    : `Upload ${block.block_type}`}
+                              </span>
+                              <input
+                                type="file"
+                                accept={LESSON_MEDIA[block.block_type].accept}
+                                disabled={busy}
+                                onChange={(event) => uploadBlockMedia(index, block.block_type, event)}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              className="learn-media-pick"
+                              onClick={() => openMediaLibrary(index, block.block_type)}
+                            >
+                              <Link2 size={15} /> Choose existing
+                            </button>
+                            {block.config?.url && (
+                              <button
+                                type="button"
+                                className="learn-media-remove"
+                                onClick={() => updateBlockConfig(index, "url", "")}
+                              >
+                                <X size={14} /> Remove
+                              </button>
+                            )}
+                            {block.config?.url && isDirectMediaUrl(block.config.url) ? (
+                              block.block_type === "video" ? (
+                                <video
+                                  className="learn-media-preview"
+                                  controls
+                                  preload="metadata"
+                                  src={getImageUrl(block.config.url) || block.config.url}
+                                />
+                              ) : (
+                                <audio
+                                  className="learn-media-preview"
+                                  controls
+                                  preload="metadata"
+                                  src={getImageUrl(block.config.url) || block.config.url}
+                                />
+                              )
+                            ) : block.config?.url ? (
+                              <a className="learn-media-open" href={block.config.url} target="_blank" rel="noreferrer">
+                                Open link <ExternalLink size={13} />
+                              </a>
+                            ) : null}
+                          </div>
+                        )}
+
+                        {mediaLibrary?.index === index && (
+                          <div className="learn-media-library">
+                            <div className="learn-media-library-head">
+                              <strong>Existing {mediaLibrary.mode} files</strong>
+                              <button
+                                type="button"
+                                className="icon-button"
+                                title="Close"
+                                onClick={() => setMediaLibrary(null)}
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                            {mediaLibrary.loading ? (
+                              <p className="field-hint">Loading media…</p>
+                            ) : mediaLibrary.error ? (
+                              <p className="field-hint">{mediaLibrary.error}</p>
+                            ) : mediaLibrary.items.length === 0 ? (
+                              <p className="field-hint">
+                                No {mediaLibrary.mode} files on the site yet — upload one above or paste a link.
+                              </p>
+                            ) : (
+                              mediaLibrary.items.map((item) => (
+                                <button
+                                  key={item.id ?? item.url}
+                                  type="button"
+                                  className="learn-media-library-item"
+                                  onClick={() => {
+                                    updateBlockConfig(index, "url", toMediaPath(item.url));
+                                    setMediaLibrary(null);
+                                  }}
+                                >
+                                  <span>{item.title || item.filename || item.url}</span>
+                                  <small>{toMediaPath(item.url)}</small>
+                                </button>
+                              ))
                             )}
                           </div>
                         )}

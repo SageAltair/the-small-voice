@@ -41,6 +41,70 @@ def upload_image(image: UploadFile = File(...), _: User = Depends(require_admin)
     return {"image_url": f"/uploads/{filename}"}
 
 
+# Learn blocks (video/audio/image) share the uploads mount, so a media file
+# chosen in the lesson builder is stored exactly like every other upload.
+ALLOWED_MEDIA_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "video/ogg": ".ogv",
+    "video/quicktime": ".mov",
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/ogg": ".ogg",
+    "audio/mp4": ".m4a",
+    "audio/aac": ".aac",
+    "audio/flac": ".flac",
+}
+ALLOWED_MEDIA_EXTENSIONS = set(ALLOWED_MEDIA_TYPES.values()) | {".jpeg", ".oga", ".m4v"}
+MAX_MEDIA_SIZE = 100 * 1024 * 1024
+
+
+@router.post("/upload-media")
+def upload_media(file: UploadFile = File(...), _: User = Depends(require_admin)):
+    """Store an image, video, or audio file uploaded from the admin's device.
+
+    The lesson block only keeps the resulting ``/uploads/...`` path, which the
+    API later validates with ``clean_media_url``, so the file must land in the
+    shared uploads directory served by the app. Both the MIME type and the
+    extension are checked: some browsers report an empty or generic content
+    type for less common containers, in which case a known media extension is
+    trusted instead.
+    """
+    content_type = (file.content_type or "").lower()
+    extension = Path(file.filename or "").suffix.lower()
+
+    if content_type in ALLOWED_MEDIA_TYPES:
+        stored_extension = ALLOWED_MEDIA_TYPES[content_type]
+    elif extension in ALLOWED_MEDIA_EXTENSIONS:
+        stored_extension = extension
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported media type. Use PNG, JPG, WEBP, GIF, MP4, WebM, OGG, MOV, MP3, WAV, M4A, AAC or FLAC.",
+        )
+
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty")
+    if len(content) > MAX_MEDIA_SIZE:
+        raise HTTPException(status_code=400, detail="Media files must be 100 MB or smaller")
+
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    filename = f"{uuid4().hex}{stored_extension}"
+    (UPLOAD_DIR / filename).write_bytes(content)
+    return {
+        "media_url": f"/uploads/{filename}",
+        "filename": Path(file.filename or filename).name,
+        "content_type": content_type,
+    }
+
+
 @router.post("/upload-resource")
 def upload_resource(resource: UploadFile = File(...), _: User = Depends(require_admin)):
     """Store an administrator-uploaded resource for public viewing/download."""

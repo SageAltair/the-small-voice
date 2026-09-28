@@ -174,6 +174,7 @@
 
 .learn-continue-item .learn-progress {
   grid-column: 1 / -1;
+}
 
 /* ----------------------------- path detail ------------------------------ */
 
@@ -734,8 +735,6 @@
   font-size: .8rem;
 }
 
-}
-
 .learn-continue-empty {
   color: var(--text-muted);
   font-size: .88rem;
@@ -765,4 +764,77 @@
   background: var(--surface);
   color: var(--text-muted);
   font-size: .88rem;
+}
+
+/* ------------------------------ media ----------------------------------- */
+
+/* Uploaded video sits on black like the rest of the site's players. */
+.lb-media-frame video {
+  background: #000;
+}
+
+.lb-audio {
+  display: block;
+}
+
+/* ------------------------- responsive polish ---------------------------- */
+
+@media (max-width: 640px) {
+  .learn-lesson-shell {
+    padding: 26px 16px 70px;
+  }
+
+  .learn-lesson-head h1 {
+    font-size: clamp(1.7rem, 8vw, 2.3rem);
+  }
+
+  .learn-path-hero {
+    gap: 18px;
+    padding-top: 32px;
+  }
+
+  .learn-path-cover {
+    max-height: 220px;
+    border-radius: 12px;
+  }
+
+  .learn-objective {
+    margin-top: 20px;
+    padding: 16px;
+  }
+
+  .learn-completion {
+    padding: 20px 16px;
+  }
+
+  .learn-section-label {
+    margin-top: 30px;
+  }
+
+  .learn-path-actions .button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .lb-media-frame,
+  .lb-figure img {
+    border-radius: 10px;
+  }
+
+  .lb-scripture,
+  .lb-quote {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .lb-reflect,
+  .lb-quiz,
+  .lb-practice,
+  .lb-prayer,
+  .lb-callout,
+  .lb-nextstep,
+  .lb-resource,
+  .lb-story {
+    padding: 16px;
+  }
 }

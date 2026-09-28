@@ -421,6 +421,19 @@ export async function uploadAdminImage(file) {
   return getImageUrl(result.image_url);
 }
 
+/**
+ * Upload an image, video, or audio file for a Learn block.
+ *
+ * Same shared uploads mount as every other media in the app; Learn stores the
+ * returned path (trimmed with toMediaPath) so the API accepts it back.
+ */
+export async function uploadAdminMedia(file) {
+  const body = new FormData();
+  body.append("file", file);
+  const result = await request("/admin/upload-media", { method: "POST", headers: authHeaders(), body });
+  return getImageUrl(result.media_url);
+}
+
 export async function uploadStoryImage(file) {
   const body = new FormData();
   body.append("image", file);

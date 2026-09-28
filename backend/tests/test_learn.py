@@ -620,3 +620,81 @@ def test_admin_lesson_builder_document_round_trip(client, admin_headers):
     assert english["blocks"][0]["data"]["options"] == ["Nobody", "An angel", "Jesus"]
 
 
+# ---------------------------------------------------------------------------
+# Admin media uploads (Learn video/audio)
+# ---------------------------------------------------------------------------
+
+def test_admin_media_upload_requires_admin(client, learner_headers):
+    response = client.post(
+        "/admin/upload-media",
+        files={"file": ("clip.mp4", b"\x00\x00\x00\x18ftypmp42", "video/mp4")},
+        headers=learner_headers,
+    )
+    assert response.status_code == 403
+
+
+def test_admin_media_upload_stores_video_and_audio(client, admin_headers):
+    from pathlib import Path as FilePath
+
+    uploads_dir = FilePath(__file__).resolve().parents[1] / "uploads"
+    stored = []
+    try:
+        for name, payload, content_type in (
+            ("lesson-clip.mp4", b"\x00\x00\x00\x18ftypmp42rest", "video/mp4"),
+            ("lesson-read.mp3", b"ID3\x04\x00\x00\x00\x00\x00\x00", "audio/mpeg"),
+        ):
+            response = client.post(
+                "/admin/upload-media",
+                files={"file": (name, payload, content_type)},
+                headers=admin_headers,
+            )
+            assert response.status_code == 200
+            body = response.json()
+            assert body["media_url"].startswith("/uploads/")
+            assert body["filename"] == name
+
+            # The file really lands in the shared uploads mount.
+            stored_path = uploads_dir / FilePath(body["media_url"]).name
+            assert stored_path.is_file()
+            assert stored_path.read_bytes() == payload
+            stored.append(stored_path)
+    finally:
+        for path in stored:
+            path.unlink(missing_ok=True)
+
+
+def test_admin_media_upload_rejects_unsupported_and_empty_files(client, admin_headers):
+    rejected = client.post(
+        "/admin/upload-media",
+        files={"file": ("payload.exe", b"MZ....", "application/x-msdownload")},
+        headers=admin_headers,
+    )
+    assert rejected.status_code == 400
+
+    empty = client.post(
+        "/admin/upload-media",
+        files={"file": ("empty.mp4", b"", "video/mp4")},
+        headers=admin_headers,
+    )
+    assert empty.status_code == 400
+
+
+def test_admin_media_upload_accepts_known_extension_when_type_is_generic(client, admin_headers):
+    from pathlib import Path as FilePath
+
+    response = client.post(
+        "/admin/upload-media",
+        files={"file": ("lesson.webm", b"RIFF....WEBM", "application/octet-stream")},
+        headers=admin_headers,
+    )
+    assert response.status_code == 200
+    body = response.json()
+    stored = FilePath(__file__).resolve().parents[1] / "uploads" / FilePath(body["media_url"]).name
+    try:
+        assert body["media_url"].endswith(".webm")
+        assert stored.is_file()
+    finally:
+        stored.unlink(missing_ok=True)
+
+
+

@@ -713,3 +713,111 @@
     justify-content: flex-start;
   }
 }
+
+/* --------------------- video/audio media controls ----------------------- */
+/* Upload from device, pick an existing site file, or keep the pasted link;
+   the preview sits under whichever source is active. Tokens keep the row in
+   step with light/dark mode like the rest of the workspace. */
+
+.learn-media-row {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+}
+
+.learn-media-pick,
+.learn-media-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid var(--line, #dce4ef);
+  border-radius: 7px;
+  background: var(--surface, #fff);
+  color: var(--text-muted, #64748b);
+  font-size: .75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.learn-media-pick:hover {
+  border-color: var(--accent, #2563eb);
+  color: var(--accent, #2563eb);
+}
+
+.learn-media-remove:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.learn-media-preview {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 8px;
+  background: #0b1220;
+}
+
+audio.learn-media-preview {
+  padding: 4px 0;
+  background: transparent;
+}
+
+.learn-media-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--accent, #2563eb);
+  font-size: .78rem;
+  font-weight: 600;
+}
+
+.learn-media-library {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 12px;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+}
+
+.learn-media-library-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.learn-media-library-head strong {
+  font-size: .8rem;
+}
+
+.learn-media-library-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.learn-media-library-item:hover {
+  border-color: var(--accent, #2563eb);
+  background: var(--accent-soft, #eff6ff);
+}
+
+.learn-media-library-item span {
+  color: var(--text, #172033);
+  font-size: .8rem;
+}
+
+.learn-media-library-item small {
+  color: var(--text-muted, #94a3b8);
+  font-size: .7rem;
+  word-break: break-all;
+}

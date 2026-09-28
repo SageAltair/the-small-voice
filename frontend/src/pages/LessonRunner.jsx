@@ -31,6 +31,24 @@ function toEmbedUrl(url) {
   }
 }
 
+/** Hosts with a real embed player; everything else prefers a native file. */
+function isEmbedProvider(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return ["youtube.com", "m.youtube.com", "youtu.be", "vimeo.com"].includes(host);
+  } catch {
+    return false;
+  }
+}
+
+/** True for URLs a native <video>/<audio> element can play directly. */
+function isDirectMediaUrl(url) {
+  if (!url) return false;
+  if (url.startsWith("/uploads/")) return true;
+  const path = url.split("?")[0].toLowerCase();
+  return /\.(mp4|webm|ogv|ogg|mov|m4v|mp3|wav|oga|m4a|aac|flac)$/.test(path);
+}
+
 /**
  * The lesson viewer: renders one published lesson's blocks, keeps answers and
  * reading position saved (debounced), and marks completion.
@@ -244,18 +262,32 @@ export default function LessonRunner() {
       }
 
       case "video": {
-        const src = toEmbedUrl(cfg.url);
-        if (!src) return null;
+        if (!cfg.url) return null;
+        // Uploaded files and direct media links play in a native <video>;
+        // only real embed providers (YouTube/Vimeo) need the iframe.
+        const fileUrl = getImageUrl(cfg.url) || cfg.url;
+        const useFrame = isEmbedProvider(cfg.url) || !isDirectMediaUrl(cfg.url);
         return (
           <div className="lb" key={block.id}>
             <div className="lb-media-frame">
-              <iframe
-                src={src}
-                title={d.caption || "Lesson video"}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
-                allowFullScreen
-                loading="lazy"
-              />
+              {useFrame ? (
+                <iframe
+                  src={toEmbedUrl(cfg.url)}
+                  title={d.caption || "Lesson video"}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  loading="lazy"
+                />
+              ) : (
+                <video
+                  className="lb-video"
+                  controls
+                  preload="metadata"
+                  playsInline
+                  src={fileUrl}
+                  aria-label={d.caption || "Lesson video"}
+                />
+              )}
             </div>
             {d.caption ? <p className="lb-caption">{d.caption}</p> : null}
           </div>
@@ -266,7 +298,7 @@ export default function LessonRunner() {
         if (!cfg.url) return null;
         return (
           <div className="lb" key={block.id}>
-            <audio className="lb-audio" controls preload="none" src={getImageUrl(cfg.url) || cfg.url} />
+            <audio className="lb-audio" controls preload="metadata" src={getImageUrl(cfg.url) || cfg.url} />
             {d.caption ? <p className="lb-caption">{d.caption}</p> : null}
           </div>
         );

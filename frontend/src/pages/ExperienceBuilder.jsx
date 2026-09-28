@@ -4,7 +4,7 @@ import {
   Grid3x3, HelpCircle, Image as ImageIcon, Loader2, Lock, Maximize2, Monitor, Plus,
   Redo2, RotateCw, Save, Send, Smartphone, Tablet, Trash2, Undo2, Unlock, ZoomIn, ZoomOut,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
 import ExperienceRenderer from "../components/experience/ExperienceRenderer";
 import { SHAPE_OPTIONS, ICON_OPTIONS } from "../experience/elementCatalog";
@@ -81,12 +81,21 @@ function CreateModal({ busy, error, onCreate, onClose }) {
   const [title, setTitle] = useState("");
   const [language, setLanguage] = useState("en");
 
+  // Escape is a first-class cancel while nothing is being created.
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === "Escape" && !busy) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
+
   return (
-    <div className="eb-modal" role="dialog" aria-modal="true" aria-label="Create experience" onMouseDown={onClose}>
+    <div className="eb-modal" role="dialog" aria-modal="true" aria-label="Create experience" onMouseDown={busy ? undefined : onClose}>
       <div className="eb-modal__card eb-modal__card--wide" onMouseDown={(event) => event.stopPropagation()}>
         <header className="eb-modal__head">
           <h2>What do you want to create?</h2>
-          <button type="button" className="eb-icon-btn" onClick={onClose} aria-label="Close">×</button>
+          <button type="button" className="eb-icon-btn" onClick={onClose} aria-label="Close" disabled={busy}>×</button>
         </header>
 
         <div className="eb-modal__body">
@@ -126,7 +135,7 @@ function CreateModal({ busy, error, onCreate, onClose }) {
         </div>
 
         <footer className="eb-modal__foot">
-          <button type="button" className="eb-btn eb-btn--ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="eb-btn eb-btn--ghost" onClick={onClose} disabled={busy}>Cancel</button>
           <button
             type="button"
             className="eb-btn eb-btn--primary"
@@ -1093,6 +1102,7 @@ function PropertiesPanel({
 
 export default function ExperienceBuilder() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const experienceId = params.get("id");
 
   const [doc, setDoc] = useState(null);
@@ -1938,6 +1948,24 @@ export default function ExperienceBuilder() {
     }
   }, [params, setParams]);
 
+  /**
+   * Cancel the create flow.
+   *
+   * With an experience already open the modal simply closes and the editor
+   * stays put. Without one there is no document behind it, so the builder is
+   * left the way the admin arrived: back to the console. (Closing used to
+   * surface "Choose a type to begin." instead of closing, which trapped the
+   * user in the dialog.)
+   */
+  const closeCreate = useCallback(() => {
+    setCreateError("");
+    if (experienceId) {
+      setShowCreate(false);
+      return;
+    }
+    navigate("/admin");
+  }, [experienceId, navigate]);
+
   const handlePublish = useCallback(async () => {
     if (!experienceId) return;
     if (historyRef.current) await persist(historyRef.current.present);
@@ -2021,7 +2049,12 @@ export default function ExperienceBuilder() {
     <div className="eb-shell">
       <header className="eb-topbar">
         <div className="eb-topbar__left">
-          <button type="button" className="eb-icon-btn" onClick={() => setParams(new URLSearchParams())} aria-label="Back to list">
+          <button
+            type="button"
+            className="eb-icon-btn"
+            onClick={() => (experienceId ? setParams(new URLSearchParams()) : navigate("/admin"))}
+            aria-label={experienceId ? "Back to list" : "Back to admin console"}
+          >
             <ChevronLeft size={16} />
           </button>
           <input
@@ -2225,7 +2258,7 @@ export default function ExperienceBuilder() {
           busy={creating}
           error={createError}
           onCreate={handleCreate}
-          onClose={() => (experienceId ? setShowCreate(false) : setCreateError("Choose a type to begin."))}
+          onClose={closeCreate}
         />
       ) : null}
     </div>

@@ -25,6 +25,9 @@ import Stories from "./pages/Stories";
 import StoryDetail from "./pages/StoryDetail";
 import Resources from "./pages/Resources";
 import Journeys from "./pages/Journeys";
+import Learn from "./pages/Learn";
+import LearnPath from "./pages/LearnPath";
+import LessonRunner from "./pages/LessonRunner";
 import PublicExperience from "./pages/PublicExperience";
 import TagStories from "./pages/TagStories";
 import About from "./pages/About";
@@ -105,6 +108,21 @@ function AppLayout() {
           <Route
             path="/journeys/:slug"
             element={<PublicExperience />}
+          />
+
+          <Route
+            path="/learn"
+            element={<Learn />}
+          />
+
+          <Route
+            path="/learn/paths/:pathSlug"
+            element={<LearnPath />}
+          />
+
+          <Route
+            path="/learn/lesson/:lessonId"
+            element={<LessonRunner />}
           />
 
           <Route

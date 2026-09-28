@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, CheckCircle2, ChevronRight, Eye, FolderOpen, ImagePlus, Library, LogOut, Pencil, Plus, RotateCcw, Search, Tags, Trash2, Users, X, Blocks } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronRight, Eye, FolderOpen, GraduationCap, ImagePlus, Library, LogOut, Pencil, Plus, RotateCcw, Search, Tags, Trash2, Users, X, Blocks } from "lucide-react";
 import RichTextEditor from "../components/RichTextEditor";
 import BrandMark from "../components/BrandMark";
 import SubmissionReview from "../components/SubmissionReview";
+import LearnAdmin from "../components/LearnAdmin";
 import { addStoryTags, createAdminItem, createStory, createUploadedAdminResource, deleteAdminItem, getAdminData, getTrash, login, permanentDeleteTrashItem, restoreTrashItem, updateAdminItem, uploadAdminImage, uploadAdminResource, uploadResourceCarousel } from "../services/api";
 import { api } from "../services/api";
 
@@ -10,6 +11,7 @@ const sections = [
   { id: "stories", label: "Stories", icon: BookOpen },
   { id: "approvals", label: "Approvals", icon: CheckCircle2 },
   { id: "resources", label: "Resources", icon: Library },
+  { id: "learn", label: "Learn", icon: GraduationCap },
   { id: "tags", label: "Topics", icon: Tags },
   { id: "users", label: "People", icon: Users },
   { id: "trash", label: "Trash", icon: Trash2 },
@@ -37,6 +39,10 @@ export default function AdminConsole() {
   const [trash, setTrash] = useState(null);
   const [reviewItem, setReviewItem] = useState(null);
   const [experiences, setExperiences] = useState(null);
+  // How much Learn content is still waiting to be published. The studio reports
+  // it while it is open, so the sidebar badge means "needs work" rather than
+  // "how many records exist" (which would only be a guess before it loads).
+  const [learnAttention, setLearnAttention] = useState(null);
 
   const refresh = async () => {
     // Always reload the main lists AND the trash together so counts/rows
@@ -315,13 +321,15 @@ export default function AdminConsole() {
                     : 0
                   : id === "experiences"
                     ? experiences?.length || 0
-                    : data[id]?.length || 0;
+                    : id === "learn"
+                      ? learnAttention
+                      : data[id]?.length || 0;
 
             const inner = (
               <>
                 <TabIcon size={18} />
                 <span>{label}</span>
-                <b>{count}</b>
+                {count === null || count === undefined ? null : <b>{count}</b>}
               </>
             );
 
@@ -366,7 +374,7 @@ export default function AdminConsole() {
             <p className="eyebrow">Content management</p>
             <h1>{active.label}</h1>
           </div>
-          {section !== "approvals" && section !== "trash" && (
+          {section !== "approvals" && section !== "trash" && section !== "learn" && (
             <button className="button" onClick={() => open(section)} disabled={section === "users"}>
               <Plus size={16} />New {singularLabel(section)}
             </button>
@@ -381,7 +389,7 @@ export default function AdminConsole() {
         )}
         {error && <div className="cms-alert">{error}</div>}
         <section className="cms-overview">
-          {section !== "trash" && (
+          {section !== "trash" && section !== "learn" && (
             <>
               <article>
                 <span>Published stories</span>
@@ -401,315 +409,323 @@ export default function AdminConsole() {
             </>
           )}
         </section>
-        <div className="cms-list-toolbar">
-          <label className="cms-search">
-            <Search size={17} />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={`Search ${active.label.toLowerCase()}...`}
-            />
-          </label>
-        </div>
-        <section className="cms-list">
-          {section === "trash" ? (
-            trash ? (
+        {section === "learn" ? (
+          // Learn owns the whole workspace: its own tabs, statistics, search and
+          // editor, so the generic list furniture below is skipped for it.
+          <LearnAdmin onNotice={setNotice} onPathCount={setLearnAttention} />
+        ) : (
+          <>
+          <div className="cms-list-toolbar">
+            <label className="cms-search">
+              <Search size={17} />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={`Search ${active.label.toLowerCase()}...`}
+              />
+            </label>
+          </div>
+          <section className="cms-list">
+            {section === "trash" ? (
+              trash ? (
+                <>
+                  {trash.stories.length === 0 && trash.resources.length === 0 && trash.tags.length === 0 && trash.users.length === 0 ? (
+                    <div className="cms-empty">
+                      <Trash2 size={24} />
+                      <p>Trash is empty</p>
+                    </div>
+                  ) : (
+                    <>
+                      {trash.stories.length > 0 && (
+                        <>
+                          <div className="cms-list-header">
+                            <span>Stories</span>
+                            <span>Details</span>
+                            <span>Actions</span>
+                          </div>
+                          {trash.stories.map((item) => (
+                            <article className="cms-row" key={`stories:${item.id}`}>
+                              <div className="cms-row-title">
+                                <strong>{item.title}</strong>
+                                <small>{item.author}</small>
+                              </div>
+                              <div className="cms-row-meta">
+                                <span>{item.tags?.length || 0} topics</span>
+                              </div>
+                              <div className="cms-row-actions">
+                                <button className="icon-button" title="Restore" onClick={() => restoreItem("stories", item.id)}>
+                                  <RotateCcw size={16} />
+                                </button>
+                                <button className="icon-button danger" title="Delete permanently" onClick={() => permanentlyDelete("stories", item.id)}>
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+                        </>
+                      )}
+                      {trash.resources.length > 0 && (
+                        <>
+                          <div className="cms-list-header">
+                            <span>Resources</span>
+                            <span>Details</span>
+                            <span>Actions</span>
+                          </div>
+                          {trash.resources.map((item) => (
+                            <article className="cms-row" key={`resources:${item.id}`}>
+                              <div className="cms-row-title">
+                                <strong>{item.title}</strong>
+                                <small>{item.resource_type || "Resource"}</small>
+                              </div>
+                              <div className="cms-row-meta">
+                                <span>{item.description || item.url}</span>
+                              </div>
+                              <div className="cms-row-actions">
+                                <button className="icon-button" title="Restore" onClick={() => restoreItem("resources", item.id)}>
+                                  <RotateCcw size={16} />
+                                </button>
+                                <button className="icon-button danger" title="Delete permanently" onClick={() => permanentlyDelete("resources", item.id)}>
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+                        </>
+                      )}
+                      {trash.tags.length > 0 && (
+                        <>
+                          <div className="cms-list-header">
+                            <span>Topics</span>
+                            <span>Details</span>
+                            <span>Actions</span>
+                          </div>
+                          {trash.tags.map((item) => (
+                            <article className="cms-row" key={`tags:${item.id}`}>
+                              <div className="cms-row-title">
+                                <strong>{item.name}</strong>
+                                <small>{item.slug}</small>
+                              </div>
+                              <div className="cms-row-meta">
+                                <span>{item.language}</span>
+                              </div>
+                              <div className="cms-row-actions">
+                                <button className="icon-button" title="Restore" onClick={() => restoreItem("tags", item.id)}>
+                                  <RotateCcw size={16} />
+                                </button>
+                                <button className="icon-button danger" title="Delete permanently" onClick={() => permanentlyDelete("tags", item.id)}>
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+                        </>
+                      )}
+                      {trash.users.length > 0 && (
+                        <>
+                          <div className="cms-list-header">
+                            <span>People</span>
+                            <span>Details</span>
+                            <span>Actions</span>
+                          </div>
+                          {trash.users.map((item) => (
+                            <article className="cms-row" key={`users:${item.id}`}>
+                              <div className="cms-row-title">
+                                <strong>{item.username}</strong>
+                                <small>{item.email}</small>
+                              </div>
+                              <div className="cms-row-meta">
+                                <span>{item.role}</span>
+                              </div>
+                              <div className="cms-row-actions">
+                                <button className="icon-button" title="Restore" onClick={() => restoreItem("users", item.id)}>
+                                  <RotateCcw size={16} />
+                                </button>
+                                <button className="icon-button danger" title="Delete permanently" onClick={() => permanentlyDelete("users", item.id)}>
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="cms-empty">
+                  <span>Loading trash...</span>
+                </div>
+              )
+            ) : (
               <>
-                {trash.stories.length === 0 && trash.resources.length === 0 && trash.tags.length === 0 && trash.users.length === 0 ? (
+                <div className="cms-list-header">
+                  <span>{section === "trash" ? "Item" : active.label.slice(0, -1)}</span>
+                  <span>Details</span>
+                  <span>Actions</span>
+                </div>
+                {items.map((item) => (
+                  <article className="cms-row" key={item.id}>
+                    <div className="cms-row-title">
+                      {["stories", "approvals"].includes(section) && (
+                        <span className={`cms-status ${item.published ? "published" : "draft"}`}>
+                          {item.published ? "Published" : "Draft"}
+                        </span>
+                      )}
+                      <strong>{item.title || item.name || item.username}</strong>
+                      <small>
+                        {["stories", "approvals"].includes(section)
+                          ? `${item.author} · ${item.category}`
+                          : section === "users"
+                            ? item.email
+                            : item.resource_type || item.slug}
+                      </small>
+                    </div>
+                    <div className="cms-row-meta">
+                      <span>
+                        {["stories", "approvals"].includes(section)
+                          ? `${item.tags?.length || 0} topics`
+                          : section === "users"
+                            ? item.role
+                            : item.description || item.url}
+                      </span>
+                    </div>
+                    <div className="cms-row-actions">
+                      {["stories", "approvals"].includes(section) && (
+                        <button
+                          className={`icon-button approve ${item.published ? "approved" : ""}`}
+                          title={item.published ? "Already approved" : "Approve and publish"}
+                          aria-label={`${item.published ? "Approved" : "Approve"} ${item.title}`}
+                          disabled={busy || item.published}
+                          onClick={() => approveItem(item)}
+                        >
+                          <CheckCircle2 size={16} />
+                          <span>{item.published ? "Approved" : "Approve"}</span>
+                        </button>
+                      )}
+                      {["stories", "approvals", "resources"].includes(section) && (
+                        <button
+                          className="icon-button"
+                          title="Review submission"
+                          aria-label={`Review ${item.title}`}
+                          onClick={() => setReviewItem(section === "approvals" ? item : { ...item, _type: section })}
+                        >
+                          <Eye size={16} />
+                        </button>
+                      )}
+                      <button className="icon-button" title="Edit" onClick={() => open(section === "approvals" ? "stories" : section, item)}>
+                        <Pencil size={16} />
+                      </button>
+                      {section !== "users" && section !== "approvals" && (
+                        <button className="icon-button danger" title="Delete" onClick={() => remove(item.id)}>
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                ))}
+                {!items.length && (
                   <div className="cms-empty">
-                    <Trash2 size={24} />
-                    <p>Trash is empty</p>
+                    <FolderOpen size={24} />
+                    <p>No matching items yet.</p>
                   </div>
-                ) : (
-                  <>
-                    {trash.stories.length > 0 && (
-                      <>
-                        <div className="cms-list-header">
-                          <span>Stories</span>
-                          <span>Details</span>
-                          <span>Actions</span>
-                        </div>
-                        {trash.stories.map((item) => (
-                          <article className="cms-row" key={`stories:${item.id}`}>
-                            <div className="cms-row-title">
-                              <strong>{item.title}</strong>
-                              <small>{item.author}</small>
-                            </div>
-                            <div className="cms-row-meta">
-                              <span>{item.tags?.length || 0} topics</span>
-                            </div>
-                            <div className="cms-row-actions">
-                              <button className="icon-button" title="Restore" onClick={() => restoreItem("stories", item.id)}>
-                                <RotateCcw size={16} />
-                              </button>
-                              <button className="icon-button danger" title="Delete permanently" onClick={() => permanentlyDelete("stories", item.id)}>
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </article>
-                        ))}
-                      </>
-                    )}
-                    {trash.resources.length > 0 && (
-                      <>
-                        <div className="cms-list-header">
-                          <span>Resources</span>
-                          <span>Details</span>
-                          <span>Actions</span>
-                        </div>
-                        {trash.resources.map((item) => (
-                          <article className="cms-row" key={`resources:${item.id}`}>
-                            <div className="cms-row-title">
-                              <strong>{item.title}</strong>
-                              <small>{item.resource_type || "Resource"}</small>
-                            </div>
-                            <div className="cms-row-meta">
-                              <span>{item.description || item.url}</span>
-                            </div>
-                            <div className="cms-row-actions">
-                              <button className="icon-button" title="Restore" onClick={() => restoreItem("resources", item.id)}>
-                                <RotateCcw size={16} />
-                              </button>
-                              <button className="icon-button danger" title="Delete permanently" onClick={() => permanentlyDelete("resources", item.id)}>
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </article>
-                        ))}
-                      </>
-                    )}
-                    {trash.tags.length > 0 && (
-                      <>
-                        <div className="cms-list-header">
-                          <span>Topics</span>
-                          <span>Details</span>
-                          <span>Actions</span>
-                        </div>
-                        {trash.tags.map((item) => (
-                          <article className="cms-row" key={`tags:${item.id}`}>
-                            <div className="cms-row-title">
-                              <strong>{item.name}</strong>
-                              <small>{item.slug}</small>
-                            </div>
-                            <div className="cms-row-meta">
-                              <span>{item.language}</span>
-                            </div>
-                            <div className="cms-row-actions">
-                              <button className="icon-button" title="Restore" onClick={() => restoreItem("tags", item.id)}>
-                                <RotateCcw size={16} />
-                              </button>
-                              <button className="icon-button danger" title="Delete permanently" onClick={() => permanentlyDelete("tags", item.id)}>
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </article>
-                        ))}
-                      </>
-                    )}
-                    {trash.users.length > 0 && (
-                      <>
-                        <div className="cms-list-header">
-                          <span>People</span>
-                          <span>Details</span>
-                          <span>Actions</span>
-                        </div>
-                        {trash.users.map((item) => (
-                          <article className="cms-row" key={`users:${item.id}`}>
-                            <div className="cms-row-title">
-                              <strong>{item.username}</strong>
-                              <small>{item.email}</small>
-                            </div>
-                            <div className="cms-row-meta">
-                              <span>{item.role}</span>
-                            </div>
-                            <div className="cms-row-actions">
-                              <button className="icon-button" title="Restore" onClick={() => restoreItem("users", item.id)}>
-                                <RotateCcw size={16} />
-                              </button>
-                              <button className="icon-button danger" title="Delete permanently" onClick={() => permanentlyDelete("users", item.id)}>
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </article>
-                        ))}
-                      </>
-                    )}
-                  </>
                 )}
               </>
-            ) : (
-              <div className="cms-empty">
-                <span>Loading trash...</span>
-              </div>
-            )
-          ) : (
-            <>
-              <div className="cms-list-header">
-                <span>{section === "trash" ? "Item" : active.label.slice(0, -1)}</span>
-                <span>Details</span>
-                <span>Actions</span>
-              </div>
-              {items.map((item) => (
-                <article className="cms-row" key={item.id}>
-                  <div className="cms-row-title">
-                    {["stories", "approvals"].includes(section) && (
-                      <span className={`cms-status ${item.published ? "published" : "draft"}`}>
-                        {item.published ? "Published" : "Draft"}
-                      </span>
-                    )}
-                    <strong>{item.title || item.name || item.username}</strong>
-                    <small>
-                      {["stories", "approvals"].includes(section)
-                        ? `${item.author} · ${item.category}`
-                        : section === "users"
-                          ? item.email
-                          : item.resource_type || item.slug}
-                    </small>
+            )}
+          </section>
+          {editor && (
+            <div className="cms-modal-backdrop" onMouseDown={close}>
+              <section className="cms-modal" onMouseDown={(event) => event.stopPropagation()}>
+                <header>
+                  <div>
+                    <p className="eyebrow">{editor.item ? "Editing" : "New"} {singularLabel(editor.type)}</p>
+                    <h2>{editor.item ? `Edit ${singularLabel(editor.type)}` : `Create ${singularLabel(editor.type)}`}</h2>
                   </div>
-                  <div className="cms-row-meta">
-                    <span>
-                      {["stories", "approvals"].includes(section)
-                        ? `${item.tags?.length || 0} topics`
-                        : section === "users"
-                          ? item.role
-                          : item.description || item.url}
-                    </span>
-                  </div>
-                  <div className="cms-row-actions">
-                    {["stories", "approvals"].includes(section) && (
-                      <button
-                        className={`icon-button approve ${item.published ? "approved" : ""}`}
-                        title={item.published ? "Already approved" : "Approve and publish"}
-                        aria-label={`${item.published ? "Approved" : "Approve"} ${item.title}`}
-                        disabled={busy || item.published}
-                        onClick={() => approveItem(item)}
-                      >
-                        <CheckCircle2 size={16} />
-                        <span>{item.published ? "Approved" : "Approve"}</span>
-                      </button>
-                    )}
-                    {["stories", "approvals", "resources"].includes(section) && (
-                      <button
-                        className="icon-button"
-                        title="Review submission"
-                        aria-label={`Review ${item.title}`}
-                        onClick={() => setReviewItem(section === "approvals" ? item : { ...item, _type: section })}
-                      >
-                        <Eye size={16} />
-                      </button>
-                    )}
-                    <button className="icon-button" title="Edit" onClick={() => open(section === "approvals" ? "stories" : section, item)}>
-                      <Pencil size={16} />
-                    </button>
-                    {section !== "users" && section !== "approvals" && (
-                      <button className="icon-button danger" title="Delete" onClick={() => remove(item.id)}>
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))}
-              {!items.length && (
-                <div className="cms-empty">
-                  <FolderOpen size={24} />
-                  <p>No matching items yet.</p>
-                </div>
-              )}
-            </>
-          )}
-        </section>
-        {editor && (
-          <div className="cms-modal-backdrop" onMouseDown={close}>
-            <section className="cms-modal" onMouseDown={(event) => event.stopPropagation()}>
-              <header>
-                <div>
-                  <p className="eyebrow">{editor.item ? "Editing" : "New"} {singularLabel(editor.type)}</p>
-                  <h2>{editor.item ? `Edit ${singularLabel(editor.type)}` : `Create ${singularLabel(editor.type)}`}</h2>
-                </div>
-                <button className="icon-button" onClick={close}><X size={19} /></button>
-              </header>
-              <form onSubmit={save}>
-                {editor.type === "stories" && (
-                  <>
+                  <button className="icon-button" onClick={close}><X size={19} /></button>
+                </header>
+                <form onSubmit={save}>
+                  {editor.type === "stories" && (
+                    <>
+                      <div className="cms-fields">
+                        <label>Title<input value={draft.title} onChange={(event) => setEditor({ ...editor, draft: { ...draft, title: event.target.value } })} required /></label>
+                        <label>URL slug<input value={draft.slug} onChange={(event) => setEditor({ ...editor, draft: { ...draft, slug: event.target.value } })} required /></label>
+                        <label>Author<input value={draft.author} onChange={(event) => setEditor({ ...editor, draft: { ...draft, author: event.target.value } })} required /></label>
+                        <label className="wide">Category<input value={draft.category} onChange={(event) => setEditor({ ...editor, draft: { ...draft, category: event.target.value } })} required /></label>
+                        <label className="wide">Language<select value={draft.language || "en"} onChange={(event) => change("language", event.target.value)}><option value="en">English</option><option value="sw">Swahili</option></select></label>
+                      </div>
+                      <div className="story-form-wide">
+                        <span className="editor-label">Story</span>
+                        <RichTextEditor value={draft.content} onChange={(content) => setEditor({ ...editor, draft: { ...draft, content } })} />
+                      </div>
+                      <div className="cms-media-row">
+                        <label className="cms-upload">
+                          <ImagePlus size={18} />
+                          <span>{draft.image_url ? "Replace cover image" : "Upload cover image"}</span>
+                          <input type="file" accept="image/*" onChange={uploadCover} />
+                        </label>
+                        {draft.image_url && <img src={draft.image_url} alt="Story cover preview" />}
+                      </div>
+                      <fieldset className="cms-topic-picker">
+                        <legend>Topics</legend>
+                        {data.tags.length ? data.tags.map((tag) => (
+                          <label key={tag.id}>
+                            <input
+                              type="checkbox"
+                              checked={draft.tags?.includes(tag.id)}
+                              onChange={(event) => change("tags", event.target.checked ? [...(draft.tags || []), tag.id] : (draft.tags || []).filter((id) => id !== tag.id))}
+                            />
+                            {tag.name}
+                          </label>
+                        )) : <span>No topics yet.</span>}
+                      </fieldset>
+                      <div className="cms-toggles">
+                        <label><input type="checkbox" checked={draft.published} onChange={(event) => setEditor({ ...editor, draft: { ...draft, published: event.target.checked } })} /> Published</label>
+                        <label><input type="checkbox" checked={draft.featured} onChange={(event) => setEditor({ ...editor, draft: { ...draft, featured: event.target.checked } })} /> Featured</label>
+                      </div>
+                    </>
+                  )}
+                  {editor.type === "resources" && (
                     <div className="cms-fields">
                       <label>Title<input value={draft.title} onChange={(event) => setEditor({ ...editor, draft: { ...draft, title: event.target.value } })} required /></label>
-                      <label>URL slug<input value={draft.slug} onChange={(event) => setEditor({ ...editor, draft: { ...draft, slug: event.target.value } })} required /></label>
-                      <label>Author<input value={draft.author} onChange={(event) => setEditor({ ...editor, draft: { ...draft, author: event.target.value } })} required /></label>
-                      <label className="wide">Category<input value={draft.category} onChange={(event) => setEditor({ ...editor, draft: { ...draft, category: event.target.value } })} required /></label>
+                      <label>Resource type<select value={draft.resource_type} onChange={(event) => setEditor({ ...editor, draft: { ...draft, resource_type: event.target.value } })} required><option value="">Select type</option><option value="book">Book (PDF)</option><option value="photo">Photos</option><option value="video">Video</option><option value="audio">Audio</option></select></label>
+                      <label className="wide">Language<select value={draft.language || "en"} onChange={(event) => change("language", event.target.value)}><option value="en">English</option><option value="sw">Swahili</option></select></label>
+                      <label className="wide">Web link<input type="url" placeholder="https://example.com/resource" value={draft.url} onChange={(event) => setEditor({ ...editor, draft: { ...draft, url: event.target.value } })} /></label>
+                      <label className="wide cms-file-upload">Upload local file(s) <span className="field-hint">PDF, document, audio, video, or other file — up to 300 MB each. Upload several at once to create multiple resources.</span><input type="file" multiple onChange={(event) => setResourceFile(Array.from(event.target.files || []))} />{resourceFile.length > 0 && <small>{resourceFile.length} file{resourceFile.length === 1 ? "" : "s"} selected{resourceFile.length <= 3 ? `: ${resourceFile.map((file) => file.name).join(", ")}` : ""}</small>}</label>
+                      <label className="wide">Description<textarea value={draft.description} onChange={(event) => setEditor({ ...editor, draft: { ...draft, description: event.target.value } })} required /></label>
+                      <label className="cms-checkbox wide"><input type="checkbox" checked={resourceFile ? true : draft.downloadable} disabled={Boolean(resourceFile)} onChange={(event) => change("downloadable", event.target.checked)} />Make this resource downloadable</label>
+                    </div>
+                  )}
+                  {editor.type === "tags" && (
+                    <div className="cms-fields">
+                      <label>Name<input value={draft.name} onChange={(event) => { change("name", event.target.value); if (!editor.item) change("slug", slugify(event.target.value)); }} required /></label>
+                      <label>URL slug<input value={draft.slug} onChange={(event) => change("slug", slugify(event.target.value))} required /></label>
                       <label className="wide">Language<select value={draft.language || "en"} onChange={(event) => change("language", event.target.value)}><option value="en">English</option><option value="sw">Swahili</option></select></label>
                     </div>
-                    <div className="story-form-wide">
-                      <span className="editor-label">Story</span>
-                      <RichTextEditor value={draft.content} onChange={(content) => setEditor({ ...editor, draft: { ...draft, content } })} />
-                    </div>
-                    <div className="cms-media-row">
-                      <label className="cms-upload">
-                        <ImagePlus size={18} />
-                        <span>{draft.image_url ? "Replace cover image" : "Upload cover image"}</span>
-                        <input type="file" accept="image/*" onChange={uploadCover} />
-                      </label>
-                      {draft.image_url && <img src={draft.image_url} alt="Story cover preview" />}
-                    </div>
-                    <fieldset className="cms-topic-picker">
-                      <legend>Topics</legend>
-                      {data.tags.length ? data.tags.map((tag) => (
-                        <label key={tag.id}>
-                          <input
-                            type="checkbox"
-                            checked={draft.tags?.includes(tag.id)}
-                            onChange={(event) => change("tags", event.target.checked ? [...(draft.tags || []), tag.id] : (draft.tags || []).filter((id) => id !== tag.id))}
-                          />
-                          {tag.name}
-                        </label>
-                      )) : <span>No topics yet.</span>}
-                    </fieldset>
-                    <div className="cms-toggles">
-                      <label><input type="checkbox" checked={draft.published} onChange={(event) => setEditor({ ...editor, draft: { ...draft, published: event.target.checked } })} /> Published</label>
-                      <label><input type="checkbox" checked={draft.featured} onChange={(event) => setEditor({ ...editor, draft: { ...draft, featured: event.target.checked } })} /> Featured</label>
-                    </div>
-                  </>
-                )}
-                {editor.type === "resources" && (
-                  <div className="cms-fields">
-                    <label>Title<input value={draft.title} onChange={(event) => setEditor({ ...editor, draft: { ...draft, title: event.target.value } })} required /></label>
-                    <label>Resource type<select value={draft.resource_type} onChange={(event) => setEditor({ ...editor, draft: { ...draft, resource_type: event.target.value } })} required><option value="">Select type</option><option value="book">Book (PDF)</option><option value="photo">Photos</option><option value="video">Video</option><option value="audio">Audio</option></select></label>
-                    <label className="wide">Language<select value={draft.language || "en"} onChange={(event) => change("language", event.target.value)}><option value="en">English</option><option value="sw">Swahili</option></select></label>
-                    <label className="wide">Web link<input type="url" placeholder="https://example.com/resource" value={draft.url} onChange={(event) => setEditor({ ...editor, draft: { ...draft, url: event.target.value } })} /></label>
-                    <label className="wide cms-file-upload">Upload local file(s) <span className="field-hint">PDF, document, audio, video, or other file — up to 300 MB each. Upload several at once to create multiple resources.</span><input type="file" multiple onChange={(event) => setResourceFile(Array.from(event.target.files || []))} />{resourceFile.length > 0 && <small>{resourceFile.length} file{resourceFile.length === 1 ? "" : "s"} selected{resourceFile.length <= 3 ? `: ${resourceFile.map((file) => file.name).join(", ")}` : ""}</small>}</label>
-                    <label className="wide">Description<textarea value={draft.description} onChange={(event) => setEditor({ ...editor, draft: { ...draft, description: event.target.value } })} required /></label>
-                    <label className="cms-checkbox wide"><input type="checkbox" checked={resourceFile ? true : draft.downloadable} disabled={Boolean(resourceFile)} onChange={(event) => change("downloadable", event.target.checked)} />Make this resource downloadable</label>
-                  </div>
-                )}
-                {editor.type === "tags" && (
-                  <div className="cms-fields">
-                    <label>Name<input value={draft.name} onChange={(event) => { change("name", event.target.value); if (!editor.item) change("slug", slugify(event.target.value)); }} required /></label>
-                    <label>URL slug<input value={draft.slug} onChange={(event) => change("slug", slugify(event.target.value))} required /></label>
-                    <label className="wide">Language<select value={draft.language || "en"} onChange={(event) => change("language", event.target.value)}><option value="en">English</option><option value="sw">Swahili</option></select></label>
-                  </div>
-                )}
-                <p className="cms-editor-note">{editor.type === "resources" && resourceFile.length > 1 ? `Each file will become its own "${draft.resource_type || "resource"}" resource.` : ""}</p>
-                <footer>
-                  <button className="button secondary" type="button" onClick={close}>Cancel</button>
-                  <button className="button" disabled={busy} type="submit">{busy ? "Saving..." : "Save changes"}<CheckCircle2 size={16} /></button>
-                </footer>
-              </form>
-            </section>
-          </div>
-        )}
-        {reviewItem && (
-          <SubmissionReview
-            item={reviewItem}
-            onClose={() => setReviewItem(null)}
-            onApprove={
-              reviewItem.published
-                ? undefined
-                : () => {
-                    const target = reviewItem;
-                    setReviewItem(null);
-                    approveItem(target);
-                  }
-            }
-          />
+                  )}
+                  <p className="cms-editor-note">{editor.type === "resources" && resourceFile.length > 1 ? `Each file will become its own "${draft.resource_type || "resource"}" resource.` : ""}</p>
+                  <footer>
+                    <button className="button secondary" type="button" onClick={close}>Cancel</button>
+                    <button className="button" disabled={busy} type="submit">{busy ? "Saving..." : "Save changes"}<CheckCircle2 size={16} /></button>
+                  </footer>
+                </form>
+              </section>
+            </div>
+          )}
+          {reviewItem && (
+            <SubmissionReview
+              item={reviewItem}
+              onClose={() => setReviewItem(null)}
+              onApprove={
+                reviewItem.published
+                  ? undefined
+                  : () => {
+                      const target = reviewItem;
+                      setReviewItem(null);
+                      approveItem(target);
+                    }
+              }
+            />
+          )}
+          </>
         )}
       </section>
     </main>

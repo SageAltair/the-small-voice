@@ -20,6 +20,19 @@ from app.models.story_tag import story_tags
 from app.models.tag import Tag
 from app.models.user import User
 from app.models.newsletter import NewsletterSubscription
+from app.models.learn import (
+    LearnCategory,
+    LearnCategoryTranslation,
+    LearnPath,
+    LearnPathTranslation,
+    LearnLesson,
+    LearnLessonTranslation,
+    LearnLessonBlock,
+    LearnLessonBlockTranslation,
+    LearnLessonProgress,
+    LearnPathProgress,
+    LearnEvent,
+)
 
 from app.routes.resources import router as resources_router
 from app.routes.contact import router as contact_router
@@ -29,6 +42,8 @@ from app.routes.users import router as users_router
 from app.routes.admin import router as admin_router
 from app.routes.newsletter import router as newsletter_router
 from app.routes.experiences import router as experiences_router
+from app.routes.learn import router as learn_router
+from app.routes.learn_admin import router as learn_admin_router
 from app.config import FRONTEND_ORIGIN_REGEX, FRONTEND_ORIGINS
 
 
@@ -76,6 +91,8 @@ app.include_router(tags_router)
 app.include_router(resources_router)
 app.include_router(contact_router)
 app.include_router(experiences_router)
+app.include_router(learn_router)
+app.include_router(learn_admin_router)
 
 
 @app.get("/", include_in_schema=False)

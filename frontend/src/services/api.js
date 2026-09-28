@@ -28,6 +28,28 @@ export function getImageUrl(url) {
   return url?.startsWith("/") ? `${API_BASE_URL}${url}` : url;
 }
 
+/**
+ * The inverse of getImageUrl, for Learn content that is being written back.
+ *
+ * Learn stores media as either a same-origin "/uploads/..." path or a full
+ * https address; anything else is refused by the API. uploadAdminImage hands
+ * back an absolute URL, so an upload is trimmed to its path before it is saved -
+ * otherwise the server would drop it and the cover or image would vanish.
+ */
+export function toMediaPath(url) {
+  if (!url) return "";
+  if (url.startsWith("/")) return url;
+  try {
+    const parsed = new URL(url, API_BASE_URL);
+    if (`${parsed.protocol}//${parsed.host}` === API_BASE_URL) {
+      return `${parsed.pathname}${parsed.search}`;
+    }
+  } catch {
+    return url;
+  }
+  return url;
+}
+
 export const getResourceUrl = getImageUrl;
 
 export function getResourceDownloadUrl(resource) {
@@ -38,15 +60,18 @@ export function getResourceDownloadUrl(resource) {
     : getResourceUrl(resource.url);
 }
 
-async function request(endpoint, options = {}) {
+export async function request(endpoint, options = {}) {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
     let code = null;
+    let detail = null;
 
     try {
       const errorData = await response.json();
+
+      detail = errorData.detail ?? null;
 
       if (errorData.detail) {
         if (typeof errorData.detail === "string") {
@@ -67,13 +92,16 @@ async function request(endpoint, options = {}) {
     const error = new Error(message);
     error.code = code;
     error.status = response.status;
+    // Structured detail (e.g. Learn's field-by-field publish validation) is
+    // kept so callers can list every problem instead of only the first.
+    error.detail = detail;
     throw error;
   }
 
   return response.json();
 }
 
-function authHeaders() {
+export function authHeaders() {
   const token = localStorage.getItem("access_token");
 
   return token
@@ -85,10 +113,36 @@ function authHeaders() {
 
 // Appends the selected content language to a public content endpoint so the
 // API only returns stories/resources written in that language.
-function withLang(endpoint, lang) {
+export function withLang(endpoint, lang) {
   if (!lang) return endpoint;
 
   return `${endpoint}${endpoint.includes("?") ? "&" : "?"}lang=${encodeURIComponent(lang)}`;
+}
+
+/**
+ * Adopt any anonymous Learn progress recorded on this device into the account
+ * that just signed in, so creating or using an account never loses a place
+ * part-way through a path.
+ *
+ * Best-effort by design: a failed merge must never block signing in, and it
+ * only runs once per client id.
+ */
+export function mergeLearnProgress() {
+  const clientId = storedLearnClientId();
+
+  if (!clientId || !localStorage.getItem("access_token") || learnProgressMerged(clientId)) {
+    return Promise.resolve(null);
+  }
+
+  return request(`/learn/progress/merge?client_token=${encodeURIComponent(clientId)}`, {
+    method: "POST",
+    headers: authHeaders(),
+  })
+    .then((result) => {
+      markLearnProgressMerged(clientId);
+      return result;
+    })
+    .catch(() => null);
 }
 
 export function getGoogleAuthUrl() {
@@ -97,6 +151,8 @@ export function getGoogleAuthUrl() {
 
 export function setAccessToken(token) {
   localStorage.setItem("access_token", token);
+  // Same adoption step as the e-mail sign-in, for the Google callback.
+  mergeLearnProgress();
 }
 
 export function resendVerification(email) {
@@ -109,6 +165,56 @@ export function resendVerification(email) {
   });
 }
 
+
+// ================================
+// LEARN CLIENT IDENTITY
+// ================================
+//
+// The Learn pages keep a random client id so a visitor can make progress
+// without an account. This block is dependency-free and lives beside the auth
+// helpers so the sign-in flow can adopt that progress without a cycle.
+
+const LEARN_CLIENT_KEY = "learn_client_id";
+const LEARN_MERGED_KEY = "learn_progress_merged";
+const LEARN_CLIENT_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
+function newLearnClientId() {
+  const raw =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, "")
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
+
+  return raw.slice(0, 32);
+}
+
+/** The device's Learn client id, created on first use. */
+export function learnClientId() {
+  const stored = localStorage.getItem(LEARN_CLIENT_KEY);
+
+  if (stored && LEARN_CLIENT_PATTERN.test(stored)) return stored;
+
+  const created = newLearnClientId();
+  localStorage.setItem(LEARN_CLIENT_KEY, created);
+  return created;
+}
+
+/** The stored id only - used by the sign-in flow, which must not invent one. */
+export function storedLearnClientId() {
+  const stored = localStorage.getItem(LEARN_CLIENT_KEY);
+  return stored && LEARN_CLIENT_PATTERN.test(stored) ? stored : null;
+}
+
+export function learnClientHeaders() {
+  return { "X-Learn-Client": learnClientId() };
+}
+
+export function learnProgressMerged(clientId) {
+  return !clientId || localStorage.getItem(LEARN_MERGED_KEY) === clientId;
+}
+
+export function markLearnProgressMerged(clientId) {
+  if (clientId) localStorage.setItem(LEARN_MERGED_KEY, clientId);
+}
 
 // ================================
 // AUTH
@@ -147,6 +253,10 @@ export async function login(username, password) {
     "access_token",
     result.access_token
   );
+
+  // Move this device's anonymous Learn progress onto the account, without
+  // slowing down the sign-in response.
+  mergeLearnProgress();
 
   return getCurrentUser();
 }

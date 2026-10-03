@@ -9,7 +9,24 @@ import ErrorMessage from "../components/ErrorMessage";
 import { getImageUrl, getStories, getTags } from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
 import useReveal from "../hooks/useReveal";
-import homeImage from "../assets/home.png";
+
+/**
+ * A teaser, not the story.
+ *
+ * The featured story's HTML held every word, so the home page printed the whole
+ * piece and buried the "read story" link underneath it. Clipped to a few
+ * sentences at a word boundary, with the ellipsis the reader expects.
+ */
+function storyTeaser(html, limit = 240) {
+  if (!html) return "";
+  const text = new DOMParser()
+    .parseFromString(html, "text/html")
+    .body.textContent.replace(/\s+/g, " ")
+    .trim();
+  if (text.length <= limit) return text;
+  const cut = text.lastIndexOf(" ", limit);
+  return `${text.slice(0, cut > 0 ? cut : limit).trim()}…`;
+}
 
 export default function Home() {
   const { t, language } = useLanguage();
@@ -66,11 +83,11 @@ export default function Home() {
 
   const featured = stories.find((story) => story.featured) || stories[0];
   const recent = stories.slice(0, 4);
-  const excerpt = featured?.content ? new DOMParser().parseFromString(featured.content, "text/html").body.textContent : "";
+  const excerpt = storyTeaser(featured?.content);
   const heroWords = t.heroTitle.trim().split(/\s+/);
 
   return <main ref={page}>
-    <section className="hero"><div className="home-motion" aria-hidden="true"><span className="home-motion-rays" /><span className="home-motion-wave" /><span className="home-motion-wave" /><span className="home-motion-wave" /><span className="home-motion-wave" /><span className="home-motion-blob home-motion-blob-a" /><span className="home-motion-blob home-motion-blob-b" /><span className="home-motion-blob home-motion-blob-c" /></div><div className="container hero-content"><div className="hero-copy"><p className="eyebrow hero-eyebrow">{t.siteName}</p><h1 className="hero-title" aria-label={t.heroTitle}>{heroWords.map((word, index) => <span className="hero-title-word" key={`${word}-${index}`}><span>{word}</span></span>)}</h1><p className="hero-text">{t.discover}</p><div className="hero-actions"><Link to="/stories" className="button">{t.exploreStories}</Link><Link to="/resources" className="button secondary">{t.startLearning}</Link></div></div><figure className="home-hero-figure"><img src={homeImage} alt="The Small Voice" decoding="async" /></figure></div></section>
+    <section className="hero"><div className="home-motion" aria-hidden="true"><span className="home-motion-rays" /><span className="home-motion-wave" /><span className="home-motion-wave" /><span className="home-motion-wave" /><span className="home-motion-wave" /><span className="home-motion-blob home-motion-blob-a" /><span className="home-motion-blob home-motion-blob-b" /><span className="home-motion-blob home-motion-blob-c" /></div><div className="container hero-content"><div className="hero-copy"><p className="eyebrow hero-eyebrow">{t.siteName}</p><h1 className="hero-title" aria-label={t.heroTitle}>{heroWords.map((word, index) => <span className="hero-title-word" key={`${word}-${index}`}><span>{word}</span></span>)}</h1><p className="hero-text">{t.discover}</p><div className="hero-actions"><Link to="/stories" className="button">{t.exploreStories}</Link><Link to="/resources" className="button secondary">{t.startLearning}</Link></div></div></div></section>
     {loading && <div className="container"><Loading message={t.loadingStories} /></div>}
     {error && <div className="container"><ErrorMessage message={error} /></div>}
     {!loading && !error && featured && <section className="container featured-story"><div className="featured-copy"><p className="eyebrow">{t.featured}</p><h2>{featured.title}</h2><p>{excerpt}</p><Link to={`/stories/${featured.id}`} className="text-link">{t.readStory} <span aria-hidden="true">→</span></Link></div>{featured.image_url && <img src={getImageUrl(featured.image_url)} alt={featured.title} />}</section>}

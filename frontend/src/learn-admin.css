@@ -10,6 +10,26 @@
   gap: 20px;
 }
 
+/* The Practice studio is its own full-screen route rather than a section of
+   the CMS workspace, so it carries its own gutter and measure - and it has to
+   restate what .admin-shell would otherwise supply: the admin background, its
+   text colour and its font. Without these it inherits the public site's mono
+   body font and canvas, which is what made it look like a different site. */
+.learn-admin--page {
+  max-width: 1180px;
+  margin: 0 auto;
+  min-height: calc(100vh - 70px);
+  padding: clamp(20px, 3vw, 34px);
+  background: #f7f9fc;
+  color: #172033;
+  font-family: Poppins, system-ui, sans-serif;
+}
+
+:root[data-theme="dark"] .learn-admin--page {
+  background: #080d18;
+  color: #e5edf9;
+}
+
 /* ------------------------------- tabs ----------------------------------- */
 
 .learn-tabs {
@@ -820,4 +840,179 @@ audio.learn-media-preview {
   color: var(--text-muted, #94a3b8);
   font-size: .7rem;
   word-break: break-all;
+}
+/* ==========================================================================
+   Dark mode.
+
+   The studio was written against a light slate palette with literal hex
+   values, so on a dark page it rendered as a white box with unreadable
+   labels. The workspace toggle sets data-theme="dark" on <html>, and these
+   overrides answer that - using the same dark palette index.css already
+   applies to the surrounding .cms-* chrome, so the two agree.
+
+   Colours are reused rather than invented:
+     card #111827 · recessed #0f172a · input #0b1220
+     line #26344b · input line #334155
+     text #f1f5f9 · muted #94a3b8 · label #cbd5e1
+     accent surface #172554 · accent text #bfdbfe
+     warning #78350f/#fde68a · ready #064e3b/#a7f3d0 · error #fecaca
+   ========================================================================== */
+
+:root[data-theme="dark"] .learn-tabs,
+:root[data-theme="dark"] .learn-editor-head,
+:root[data-theme="dark"] .learn-panel,
+:root[data-theme="dark"] .learn-lesson-list > li,
+:root[data-theme="dark"] .learn-top-list > li,
+:root[data-theme="dark"] .learn-attention-list > li,
+:root[data-theme="dark"] .learn-recent-list > li,
+:root[data-theme="dark"] .learn-block {
+  border-color: #26344b;
+  background: #111827;
+}
+
+:root[data-theme="dark"] .learn-filter,
+:root[data-theme="dark"] .learn-new-form select,
+:root[data-theme="dark"] .learn-add-lesson input,
+:root[data-theme="dark"] .learn-block-fields input,
+:root[data-theme="dark"] .learn-block-fields textarea,
+:root[data-theme="dark"] .learn-block-config input,
+:root[data-theme="dark"] .learn-block-config select,
+:root[data-theme="dark"] .learn-block-section select,
+:root[data-theme="dark"] .learn-lang input,
+:root[data-theme="dark"] .learn-lang textarea,
+:root[data-theme="dark"] .learn-panel input,
+:root[data-theme="dark"] .learn-panel select,
+:root[data-theme="dark"] .learn-panel textarea,
+:root[data-theme="dark"] .learn-block-chip {
+  border-color: #334155;
+  background: #0b1220;
+  color: #e5edf9;
+}
+
+:root[data-theme="dark"] .learn-lang,
+:root[data-theme="dark"] .learn-metric-grid > div,
+:root[data-theme="dark"] .learn-block-fields,
+:root[data-theme="dark"] .learn-block-config,
+:root[data-theme="dark"] .learn-lang-tabs,
+:root[data-theme="dark"] .learn-new-form,
+:root[data-theme="dark"] .learn-block-palette {
+  border-color: #26344b;
+  background: #0f172a;
+}
+
+/* ------------------------------- tabs ---------------------------------- */
+
+:root[data-theme="dark"] .learn-tabs button {
+  color: #94a3b8;
+}
+
+:root[data-theme="dark"] .learn-tabs button:hover {
+  background: #1e3a5f;
+  color: #bfdbfe;
+}
+
+:root[data-theme="dark"] .learn-tabs button.active {
+  background: #172554;
+  color: #bfdbfe;
+}
+
+:root[data-theme="dark"] .learn-panel h3 span {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+/* ------------------------------- text ---------------------------------- */
+
+:root[data-theme="dark"] .learn-editor-meta,
+:root[data-theme="dark"] .learn-panel-hint,
+:root[data-theme="dark"] .learn-metric-grid span,
+:root[data-theme="dark"] .learn-lesson-info small,
+:root[data-theme="dark"] .learn-top-list small,
+:root[data-theme="dark"] .learn-attention-list small,
+:root[data-theme="dark"] .learn-recent-list small,
+:root[data-theme="dark"] .learn-block-group > span,
+:root[data-theme="dark"] .learn-stats strong small,
+:root[data-theme="dark"] .learn-list-empty {
+  color: #94a3b8;
+}
+
+:root[data-theme="dark"] .learn-lesson-info strong,
+:root[data-theme="dark"] .learn-metric-grid b,
+:root[data-theme="dark"] .learn-block-title strong,
+:root[data-theme="dark"] .learn-block-palette-head strong,
+:root[data-theme="dark"] .learn-top-list strong,
+:root[data-theme="dark"] .learn-attention-list strong,
+:root[data-theme="dark"] .learn-recent-list strong {
+  color: #f1f5f9;
+}
+
+:root[data-theme="dark"] .learn-panel label,
+:root[data-theme="dark"] .learn-new-form label,
+:root[data-theme="dark"] .learn-block-section,
+:root[data-theme="dark"] .learn-block-fields > label,
+:root[data-theme="dark"] .learn-block-config > label {
+  color: #cbd5e1;
+}
+
+:root[data-theme="dark"] .learn-lang-label {
+  color: #93c5fd;
+}
+
+/* ----------------------------- indicators ------------------------------ */
+
+:root[data-theme="dark"] .learn-lesson-list > li > b,
+:root[data-theme="dark"] .learn-block-index {
+  background: #172554;
+  color: #bfdbfe;
+}
+
+:root[data-theme="dark"] .learn-block-chip {
+  color: #cbd5e1;
+}
+
+:root[data-theme="dark"] .learn-block-chip:hover {
+  border-color: #3b82f6;
+  background: #172554;
+  color: #bfdbfe;
+}
+
+:root[data-theme="dark"] .learn-block.open {
+  border-color: #3b82f6;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 30%);
+}
+
+:root[data-theme="dark"] .learn-block-body {
+  border-top-color: #26344b;
+}
+
+:root[data-theme="dark"] .learn-list-empty {
+  border-color: #334155;
+}
+
+/* --------------------------- status colours ---------------------------- */
+
+:root[data-theme="dark"] .learn-tabs button b,
+:root[data-theme="dark"] .learn-dirty,
+:root[data-theme="dark"] .learn-block-empty {
+  background: #78350f;
+  color: #fde68a;
+}
+
+:root[data-theme="dark"] .learn-validation {
+  border-color: #92400e;
+  background: #1c1206;
+}
+
+:root[data-theme="dark"] .learn-validation-title,
+:root[data-theme="dark"] .learn-issue.warning {
+  color: #fde68a;
+}
+
+:root[data-theme="dark"] .learn-issue.error {
+  color: #fecaca;
+}
+
+:root[data-theme="dark"] .learn-ready {
+  background: #064e3b;
+  color: #a7f3d0;
 }

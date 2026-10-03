@@ -1,0 +1,827 @@
+/* ==========================================================================
+   Practice - active recall, spaced repetition, and real-life application.
+
+   Built on the site's existing tokens (--canvas, --surface, --accent,
+   --text-muted...) so Practice inherits light/dark mode, spacing and
+   typography instead of inventing a second visual language. Mobile-first:
+   large touch targets, no horizontal scrolling, thumb-friendly controls.
+   ========================================================================== */
+
+.practice-page {
+  padding-bottom: 84px;
+}
+
+/* Semantic answer states, defined once per theme so a correct answer is never
+   "a green box" that only works in light mode. Colour is never the only
+   signal: every state also carries an icon and a word. */
+:root {
+  --practice-correct: #2f6d4f;
+  --practice-correct-bg: #e3f1e8;
+  --practice-wrong: #9a3d32;
+  --practice-wrong-bg: #f7e8e5;
+  --practice-accent-soft: #e6efe9;
+  --practice-focus: #2f6d4f;
+}
+
+:root[data-theme="dark"] {
+  --practice-correct: #8ed0ab;
+  --practice-correct-bg: #1e2f26;
+  --practice-wrong: #e2a49a;
+  --practice-wrong-bg: #33211f;
+  --practice-accent-soft: #24352c;
+  --practice-focus: #8ed0ab;
+}
+
+/* ------------------------------- hero ----------------------------------- */
+
+.practice-hero {
+  padding: clamp(48px, 7vw, 88px) 0 40px;
+  border-bottom: 1px solid var(--line);
+  background: radial-gradient(circle at 84% 6%, var(--practice-accent-soft), transparent 34%);
+}
+
+.practice-hero h1 {
+  max-width: 720px;
+  margin: 10px 0 14px;
+  font-size: clamp(2.2rem, 4.8vw, 3.8rem);
+  line-height: 1.06;
+}
+
+.practice-hero-intro {
+  max-width: 560px;
+  color: var(--text-muted);
+}
+
+.practice-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 26px;
+  color: var(--text-muted);
+  font-size: .76rem;
+}
+
+.practice-hero-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ------------------------------ sections -------------------------------- */
+
+.practice-section {
+  margin-top: 40px;
+}
+
+.practice-section > h2 {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+}
+
+.practice-section-note {
+  margin: 0 0 18px;
+  color: var(--text-muted);
+  font-size: .86rem;
+}
+
+.practice-rule {
+  height: 1px;
+  margin: 34px 0 0;
+  border: 0;
+  background: var(--line);
+}
+
+/* ---------------------------- continue card ----------------------------- */
+
+.practice-continue {
+  display: grid;
+  gap: 18px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.practice-continue h2 {
+  margin: 0 0 6px;
+  font-size: 1.7rem;
+}
+
+.practice-continue-body {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .9rem;
+}
+
+.practice-continue-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--practice-accent-soft);
+  color: var(--accent-strong);
+  font-size: .82rem;
+}
+
+.practice-continue-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--text-muted);
+  font-size: .82rem;
+}
+
+.practice-continue-stats strong {
+  display: block;
+  color: var(--text);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+/* Buttons reuse the site's .button, so nothing here has to restyle it. */
+.practice-continue-actions .button {
+  min-height: 46px;
+}
+
+.practice-continue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ------------------------------ time picker ----------------------------- */
+
+.practice-time {
+  display: grid;
+  gap: 10px;
+}
+
+.practice-time-label {
+  color: var(--text-muted);
+  font-size: .78rem;
+  letter-spacing: .04em;
+}
+
+.practice-time-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.practice-time-option {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: .84rem;
+}
+
+.practice-time-option:hover {
+  border-color: var(--accent);
+}
+
+.practice-time-option.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+/* --------------------------- session runner ---------------------------- */
+
+.practice-session {
+  width: min(720px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 30px 0 80px;
+}
+
+.practice-session-head {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.practice-session-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: .8rem;
+}
+
+.practice-session-concept {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-strong);
+  font-size: .74rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.practice-card-question {
+  padding: 26px 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.practice-prompt {
+  margin: 0 0 6px;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(1.4rem, 3.4vw, 1.9rem);
+  line-height: 1.25;
+}
+
+.practice-scripture {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: .8rem;
+  font-style: italic;
+}
+
+/* Every interactive target is at least 44px: thumbs, not styluses. */
+.practice-options {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.practice-option {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-height: 48px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.practice-option:hover {
+  border-color: var(--accent);
+}
+
+.practice-option input {
+  margin-top: 3px;
+}
+
+.practice-option.is-picked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.practice-option.is-correct {
+  border-color: var(--practice-correct);
+  background: var(--practice-correct-bg);
+}
+
+.practice-option.is-wrong {
+  border-color: var(--practice-wrong);
+  background: var(--practice-wrong-bg);
+}
+
+.practice-option-text {
+  flex: 1;
+}
+
+.practice-option-mark {
+  font-size: .74rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.practice-option.is-correct .practice-option-mark {
+  color: var(--practice-correct);
+}
+
+.practice-option.is-wrong .practice-option-mark {
+  color: var(--practice-wrong);
+}
+
+.practice-text-answer {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 16px;
+  padding: 14px 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.practice-text-answer:focus-visible {
+  border-color: var(--practice-focus);
+  outline: 2px solid var(--practice-focus);
+  outline-offset: 2px;
+}
+
+.practice-reflection-area {
+  width: 100%;
+  min-height: 132px;
+  padding: 14px 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+/* Ordering uses buttons, not drag: keyboard and screen-reader friendly. */
+.practice-order-list,
+.practice-match-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.practice-order-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.practice-order-item span {
+  flex: 1;
+}
+
+.practice-order-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.practice-mini-button {
+  min-width: 44px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.practice-mini-button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.practice-match-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+@media (min-width: 560px) {
+  .practice-match-row {
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+}
+
+.practice-match-row select {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.practice-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.practice-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.practice-card h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.practice-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .84rem;
+}
+
+.practice-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.practice-pill {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: .68rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------- progress ------------------------------- */
+
+.practice-bar {
+  width: 100%;
+}
+
+.practice-bar-track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.practice-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 320ms ease;
+}
+
+.practice-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: .74rem;
+}
+
+/* ------------------------------- stats ---------------------------------- */
+
+.practice-stats {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.practice-stat {
+  display: grid;
+  gap: 4px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.practice-stat strong {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.practice-stat span {
+  color: var(--text-muted);
+  font-size: .76rem;
+}
+
+.practice-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------------------------- empty states ------------------------------ */
+
+.practice-empty {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 34px 26px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.practice-empty h2,
+.practice-empty h3 {
+  margin: 0;
+}
+
+.practice-empty p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* ----------------------------- confidence ------------------------------- */
+
+.practice-confidence {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.practice-confidence legend {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: .8rem;
+}
+
+.practice-confidence-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.practice-confidence-option {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: .82rem;
+  cursor: pointer;
+}
+
+.practice-confidence-option.is-picked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* ------------------------------ feedback -------------------------------- */
+
+.practice-feedback {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.practice-feedback.is-correct {
+  border-left-color: var(--practice-correct);
+  background: var(--practice-correct-bg);
+}
+
+.practice-feedback.is-not-quite {
+  border-left-color: var(--practice-wrong);
+  background: var(--practice-wrong-bg);
+}
+
+.practice-feedback h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.practice-feedback-block {
+  display: grid;
+  gap: 4px;
+}
+
+.practice-feedback-block strong {
+  font-size: .72rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.practice-feedback-block p {
+  margin: 0;
+}
+
+.practice-feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ------------------------- preparation card ---------------------------- */
+
+.practice-prep {
+  display: grid;
+  gap: 14px;
+  padding: 24px 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.practice-prep h2 {
+  margin: 0;
+}
+
+.practice-prep-card {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.practice-prep-card h3 {
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+}
+
+/* ----------------------------- completion ------------------------------- */
+
+.practice-summary {
+  display: grid;
+  gap: 22px;
+  padding: 30px 26px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.practice-summary h1,
+.practice-summary h2 {
+  margin: 0;
+}
+
+.practice-score {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 2.6rem;
+}
+
+.practice-reviewed {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.practice-reviewed li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.practice-challenge {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--practice-accent-soft);
+}
+
+.practice-challenge h3 {
+  margin: 0;
+}
+
+.practice-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* --------------------------- commitment card --------------------------- */
+
+.practice-commitment {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.practice-commitment-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.practice-commitment-fields input {
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.practice-commitment-label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: .74rem;
+}
+
+/* ------------------------------ offline --------------------------------- */
+
+.practice-offline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--practice-wrong);
+  border-radius: 10px;
+  background: var(--practice-wrong-bg);
+  color: var(--practice-wrong);
+  font-size: .84rem;
+}
+
+/* ------------------------------ utilities ------------------------------- */
+
+.practice-eyebrow {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: .72rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.practice-inline-note {
+  color: var(--text-muted);
+  font-size: .78rem;
+}
+
+.practice-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 560px) {
+  .practice-session {
+    width: min(100% - 24px, 720px);
+    padding-top: 20px;
+  }
+
+  .practice-continue {
+    padding: 20px 18px;
+  }
+
+  .practice-actions-row .button,
+  .practice-continue-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Respect the learner's motion preference (section 13). */
+@media (prefers-reduced-motion: reduce) {
+  .practice-bar-fill,
+  .practice-option {
+    transition: none;
+  }
+}

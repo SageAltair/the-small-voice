@@ -73,6 +73,12 @@ export default function Navbar() {
             Learn
           </NavLink>
 
+          {/* Practice sits next to Learn: one teaches, the other helps you
+              remember and apply it. */}
+          <NavLink to="/practice" onClick={() => setMenuOpen(false)}>
+            {t.practice.nav}
+          </NavLink>
+
           <NavLink to="/resources" onClick={() => setMenuOpen(false)}>
             {t.resources}
           </NavLink>

@@ -28,6 +28,13 @@ import Journeys from "./pages/Journeys";
 import Learn from "./pages/Learn";
 import LearnPath from "./pages/LearnPath";
 import LessonRunner from "./pages/LessonRunner";
+import Practice from "./pages/Practice";
+import PracticeSession from "./pages/PracticeSession";
+import PracticeReview from "./pages/PracticeReview";
+import PracticeAchievements from "./pages/PracticeAchievements";
+import PracticeApplications from "./pages/PracticeApplications";
+import PracticeSettings from "./pages/PracticeSettings";
+import PracticeAdmin from "./pages/PracticeAdmin";
 import PublicExperience from "./pages/PublicExperience";
 import TagStories from "./pages/TagStories";
 import About from "./pages/About";
@@ -125,6 +132,40 @@ function AppLayout() {
             element={<LessonRunner />}
           />
 
+          {/* Practice: active recall, spaced repetition and real-life
+              application. Signed out by default - progress is keyed to the
+              browser and folds into the account on sign-in. */}
+
+          <Route
+            path="/practice"
+            element={<Practice />}
+          />
+
+          <Route
+            path="/practice/session/:sessionId"
+            element={<PracticeSession />}
+          />
+
+          <Route
+            path="/practice/review"
+            element={<PracticeReview />}
+          />
+
+          <Route
+            path="/practice/achievements"
+            element={<PracticeAchievements />}
+          />
+
+          <Route
+            path="/practice/challenges"
+            element={<PracticeApplications />}
+          />
+
+          <Route
+            path="/practice/settings"
+            element={<PracticeSettings />}
+          />
+
           <Route
             path="/tags/:slug"
             element={<TagStories />}
@@ -197,6 +238,14 @@ function AppLayout() {
           <Route
             path="/admin/stories"
             element={<AdminStories />}
+          />
+
+          {/* The Practice studio is a full-screen authoring tool, like the Experience
+              Builder: it owns its own tabs, filters and preview. */}
+
+          <Route
+            path="/admin/practice"
+            element={<PracticeAdmin />}
           />
 
           <Route

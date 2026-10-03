@@ -34,6 +34,22 @@ from app.models.learn import (
     LearnEvent,
 )
 
+from app.models.practice import (
+    Achievement as PracticeAchievementDefinition,
+    ApplicationChallenge,
+    ConceptMastery,
+    PracticeApplication,
+    PracticeAttempt,
+    PracticeCommitment,
+    PracticeConcept,
+    PracticeEvent,
+    PracticeProgress,
+    PracticeQuestion,
+    PracticeSession,
+    PracticeSettings,
+    QuestionMastery,
+)
+
 from app.routes.resources import router as resources_router
 from app.routes.contact import router as contact_router
 from app.routes.stories import router as stories_router
@@ -44,6 +60,8 @@ from app.routes.newsletter import router as newsletter_router
 from app.routes.experiences import router as experiences_router
 from app.routes.learn import router as learn_router
 from app.routes.learn_admin import router as learn_admin_router
+from app.routes.practice import router as practice_router
+from app.routes.practice_admin import router as practice_admin_router
 from app.config import FRONTEND_ORIGIN_REGEX, FRONTEND_ORIGINS
 
 
@@ -84,6 +102,11 @@ app.add_middleware(
 )
 
 app.include_router(users_router)
+# Practice is registered before the generic /admin/{type}/{id} routes so its
+# own paths (e.g. /admin/practice/settings) are matched by Practice, not
+# swallowed by the catch-all admin router.
+app.include_router(practice_router)
+app.include_router(practice_admin_router)
 app.include_router(admin_router)
 app.include_router(newsletter_router)
 app.include_router(stories_router)

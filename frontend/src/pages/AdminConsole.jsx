@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, CheckCircle2, ChevronRight, Eye, FolderOpen, GraduationCap, ImagePlus, Library, LogOut, Pencil, Plus, RotateCcw, Search, Tags, Trash2, Users, X, Blocks } from "lucide-react";
+import { BookOpen, Brain, CheckCircle2, ChevronRight, Eye, FolderOpen, GraduationCap, ImagePlus, Library, LogOut, Pencil, Plus, RotateCcw, Search, Tags, Trash2, Users, X, Blocks } from "lucide-react";
 import RichTextEditor from "../components/RichTextEditor";
 import BrandMark from "../components/BrandMark";
 import SubmissionReview from "../components/SubmissionReview";
 import LearnAdmin from "../components/LearnAdmin";
+import { getPracticeAdminOverview } from "../services/practiceApi";
 import { addStoryTags, createAdminItem, createStory, createUploadedAdminResource, deleteAdminItem, getAdminData, getTrash, login, permanentDeleteTrashItem, restoreTrashItem, updateAdminItem, uploadAdminImage, uploadAdminResource, uploadResourceCarousel } from "../services/api";
 import { api } from "../services/api";
 
@@ -12,11 +13,13 @@ const sections = [
   { id: "approvals", label: "Approvals", icon: CheckCircle2 },
   { id: "resources", label: "Resources", icon: Library },
   { id: "learn", label: "Learn", icon: GraduationCap },
+  { id: "practice", label: "Practice", icon: Brain, href: "/admin/practice" },
   { id: "tags", label: "Topics", icon: Tags },
   { id: "users", label: "People", icon: Users },
   { id: "trash", label: "Trash", icon: Trash2 },
-  // The builder is a full-screen authoring tool, not a CMS list section, so
-  // it navigates to its own route instead of switching the panel below.
+  // Like Practice above, the builder is a full-screen authoring tool rather than
+  // a CMS list section, so it navigates to its own route instead of switching
+  // the panel below.
   { id: "experiences", label: "Experience Builder", icon: Blocks, href: "/admin/experience-builder" },
 ];
 const storyBlank = { title: "", slug: "", author: "", category: "", content: "", image_url: "", published: true, featured: false, tags: [] };
@@ -44,6 +47,11 @@ export default function AdminConsole() {
   // "how many records exist" (which would only be a guess before it loads).
   const [learnAttention, setLearnAttention] = useState(null);
 
+  // The Practice studio lives on its own route, so its badge is read straight
+  // from the overview here rather than reported by a panel that is not open.
+  // Null means "not loaded yet", which draws no badge at all.
+  const [practiceAttention, setPracticeAttention] = useState(null);
+
   const refresh = async () => {
     // Always reload the main lists AND the trash together so counts/rows
     // stay consistent after every delete, restore, or permanent delete.
@@ -58,6 +66,15 @@ export default function AdminConsole() {
       setExperiences(await api.listExperiences());
     } catch (err) {
       // Experiences may not be accessible; that's okay.
+    }
+    try {
+      // Only the number of questions still waiting to be published - the badge
+      // should mean "needs work", not "how many records exist".
+      const practice = await getPracticeAdminOverview();
+      setPracticeAttention(practice?.totals?.draft_questions ?? null);
+    } catch {
+      // An older backend without the Practice tables must not break the
+      // workspace; the badge simply stays blank.
     }
   };
 
@@ -323,7 +340,9 @@ export default function AdminConsole() {
                     ? experiences?.length || 0
                     : id === "learn"
                       ? learnAttention
-                      : data[id]?.length || 0;
+                      : id === "practice"
+                        ? practiceAttention
+                        : data[id]?.length || 0;
 
             const inner = (
               <>

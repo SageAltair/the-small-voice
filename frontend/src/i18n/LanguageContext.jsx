@@ -227,6 +227,8 @@ const translations = {
   },
 };
 
+import { practiceCopy } from "./practiceCopy";
+
 const LanguageContext = createContext(null);
 
 export function LanguageProvider({ children }) {
@@ -240,7 +242,12 @@ export function LanguageProvider({ children }) {
   const value = {
     language,
     setLanguage,
-    t: translations[language],
+    t: {
+      ...translations[language],
+      // Namespaced so the Practice screens read `t.practice.*` rather than
+      // competing for keys with the rest of the site.
+      practice: practiceCopy[language] || practiceCopy.en,
+    },
   };
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

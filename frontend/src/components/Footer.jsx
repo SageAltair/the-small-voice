@@ -35,7 +35,7 @@ export default function Footer() {
           <h3>{t.explore}</h3>
           <nav className="footer-nav" aria-label="Explore">
             <Link to="/stories">{t.stories}</Link>
-            <Link to="/resources">{t.resources}</Link>
+            <Link to="/resources">{t.resources.label}</Link>
             <Link to="/about">{t.about}</Link>
             <Link to="/contact">{t.contact}</Link>
             <Link to="/contact" className="footer-feedback-link">{t.feedback || "Feedback"}</Link>

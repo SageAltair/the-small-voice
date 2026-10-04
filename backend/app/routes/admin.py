@@ -14,6 +14,7 @@ from app.models.story import Story
 from app.models.tag import Tag
 from app.models.user import User
 from app.media import build_resource_cover
+from app.resource_service import flat_create_values, unique_slug
 from app.schemas.resource import ResourceCreate, ResourceResponse
 from app.schemas.tag import TagCreate, TagResponse
 
@@ -330,8 +331,21 @@ def overview(db: Session = Depends(get_db), _: User = Depends(require_admin)):
 
 @router.post("/resources", response_model=ResourceResponse)
 def create_resource(data: ResourceCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    resource = Resource(**data.model_dump())
+    """The console's flat "Add resource" form, and any other legacy client.
+
+    ``ResourceCreate`` now carries the whole editor payload, so the raw
+    ``model_dump()`` cannot go straight into the constructor: its child
+    collections (``slides`` and friends) are not model attributes and the
+    declarative constructor raises ``TypeError`` on them, which is what turned
+    every legacy create into a 500.  ``flat_create_values`` keeps the columns,
+    translates the old dialect (``resource_type`` / ``published`` /
+    ``downloadable``) into the current fields, and leaves the child collections
+    to the studio's own ``POST /admin/resources/``.
+    """
+    resource = Resource(**flat_create_values(data))
     db.add(resource)
+    db.flush()
+    resource.slug = unique_slug(db, resource.title, data.slug)
     db.commit()
     db.refresh(resource)
     return resource

@@ -228,6 +228,7 @@ const translations = {
 };
 
 import { practiceCopy } from "./practiceCopy";
+import { resourcesCopy } from "./resourceCopy";
 
 const LanguageContext = createContext(null);
 
@@ -245,8 +246,11 @@ export function LanguageProvider({ children }) {
     t: {
       ...translations[language],
       // Namespaced so the Practice screens read `t.practice.*` rather than
-      // competing for keys with the rest of the site.
+      // competing for keys with the rest of the site. Resources follows the
+      // same rule for the same reason: it has well over a hundred strings,
+      // and burying them at the top level would make both files unreadable.
       practice: practiceCopy[language] || practiceCopy.en,
+      resources: resourcesCopy[language] || resourcesCopy.en,
     },
   };
 

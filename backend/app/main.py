@@ -51,6 +51,7 @@ from app.models.practice import (
 )
 
 from app.routes.resources import router as resources_router
+from app.routes.resources_admin import router as resources_admin_router
 from app.routes.contact import router as contact_router
 from app.routes.stories import router as stories_router
 from app.routes.tags import router as tags_router
@@ -107,6 +108,11 @@ app.include_router(users_router)
 # swallowed by the catch-all admin router.
 app.include_router(practice_router)
 app.include_router(practice_admin_router)
+# Resources is registered for the same reason and one step further: the admin
+# studio owns /admin/resources/{id} for its whole-document editor, and the
+# catch-all admin router would otherwise accept those paths and quietly drop
+# every field the editor sends.
+app.include_router(resources_admin_router)
 app.include_router(admin_router)
 app.include_router(newsletter_router)
 app.include_router(stories_router)

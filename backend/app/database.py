@@ -95,6 +95,18 @@ def migrate_legacy_schema():
             "owner_id": "INTEGER",
             "language": "VARCHAR(10) NOT NULL DEFAULT 'en'",
             "cover_url": "VARCHAR(500)",
+        "external_url": "VARCHAR(500)",
+        "excerpt": "TEXT",
+        "alt_text": "TEXT",
+        "caption": "TEXT",
+        "quote_text": "TEXT",
+        "attribution": "VARCHAR(200)",
+        "transcript": "TEXT",
+        "accessibility_desc": "TEXT",
+        "duration": "INTEGER",
+        "page_count": "INTEGER",
+        "file_size": "INTEGER",
+        "mime_type": "VARCHAR(120)",
             "deleted_at": "TIMESTAMP",
             # Rich resource model: one row can be a reel, video, audio file,
             # book, carousel, quote, image, infographic, or document.
@@ -298,6 +310,10 @@ def migrate_resource_schema():
         "topic": "VARCHAR(100)",
         "status": "VARCHAR(20) NOT NULL DEFAULT 'draft'",
         "featured": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "recommended": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "is_new": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "view_count": "INTEGER NOT NULL DEFAULT 0",
+        "visibility": "VARCHAR(20) NOT NULL DEFAULT 'public'",
         "homepage_visible": "BOOLEAN NOT NULL DEFAULT TRUE",
         "display_order": "INTEGER NOT NULL DEFAULT 0",
         "published_at": "TIMESTAMP",
@@ -306,6 +322,27 @@ def migrate_resource_schema():
         "share_enabled": "BOOLEAN NOT NULL DEFAULT TRUE",
         "save_enabled": "BOOLEAN NOT NULL DEFAULT TRUE",
         "updated_at": "TIMESTAMP",
+        # Curation + presentation metadata added with the Resources rebuild.
+        # ``visibility`` follows ``homepage_visible`` for existing rows: a
+        # resource that was allowed on the homepage stays publicly listed.
+        "recommended": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "is_new": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "view_count": "INTEGER NOT NULL DEFAULT 0",
+        "alt_text": "TEXT",
+        "caption": "TEXT",
+        # Untranslated fallbacks for text that also has a translated twin.
+        "excerpt": "TEXT",
+        "quote_text": "TEXT",
+        "attribution": "VARCHAR(200)",
+        "transcript": "TEXT",
+        "accessibility_desc": "TEXT",
+        # A resource hosted somewhere else (YouTube, a partner site).
+        "external_url": "VARCHAR(500)",
+        "duration": "INTEGER",
+        "page_count": "INTEGER",
+        "file_size": "INTEGER",
+        "mime_type": "VARCHAR(200)",
+        "visibility": "VARCHAR(20) NOT NULL DEFAULT 'public'",
     }
 
     backfills = []
@@ -339,6 +376,44 @@ def migrate_resource_schema():
             ))
         except Exception:
             pass
+
+        _migrate_resource_child_tables(inspector, connection)
+
+
+def _migrate_resource_child_tables(inspector, connection) -> None:
+    """Add the columns introduced to ``resources``' child tables.
+
+    ``create_all`` builds these tables for a fresh database but cannot widen a
+    table that already exists, so an upgraded deployment needs the same
+    idempotent ALTERs the parent table gets.  Missing tables are skipped: they
+    are either created by ``create_all`` or belong to an older release whose
+    data does not exist yet.
+    """
+    child_additions = {
+        "carousel_slides": {
+            "alt_text": "TEXT",
+        },
+        "book_chapters": {
+            "body_en": "TEXT",
+            "body_sw": "TEXT",
+        },
+    }
+
+    for table, additions in child_additions.items():
+        if not inspector.has_table(table):
+            continue
+
+        existing = {
+            column["name"]
+            for column in inspector.get_columns(table)
+        }
+
+        for name, definition in additions.items():
+            if name in existing:
+                continue
+            connection.execute(
+                text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+            )
 
 
 def ensure_admin_user():

@@ -107,6 +107,79 @@ class Resource(Base):
         DateTime, nullable=True
     )
 
+    # ------------------------------------------------------------------
+    # Curation and presentation metadata
+    #
+    # ``featured``/``homepage_visible``/``display_order`` drive the curated
+    # public homepage; ``recommended`` and ``is_new`` are the two extra
+    # shelves an editor can mark a resource for.  ``view_count`` is the only
+    # popularity signal the platform records, so "popular" stays honest
+    recommended: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    is_new: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    visibility: Mapped[str] = mapped_column(
+        String(20), default="public", nullable=False
+    )
+    external_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    alt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quote_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attribution: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    accessibility_desc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mime_type: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # instead of being a hand-waved badge.
+    # ------------------------------------------------------------------
+    recommended: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    is_new: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    view_count: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+
+    # Accessibility + description text that is not part of the bilingual
+    # translation table because it applies to the asset itself (one image,
+    # one file) rather than to a language rendering of it.  Each has a
+    # translated twin in ``ResourceTranslation``; these are the untranslated
+    # fallbacks, so a resource with only one language still renders fully.
+    alt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quote_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attribution: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    accessibility_desc: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # A resource whose content lives somewhere else (a YouTube link, a hosted
+    # PDF).  Kept apart from ``url`` so the download and search endpoints can
+    # tell "our file" from "someone else's link" and never try to open the
+    # latter from disk.
+    external_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # Denormalised facts about the primary file.  Kept on the row so a listing
+    # page can show "12 min" or "24 pages" without opening every asset.
+    duration: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Seconds (video/audio)"
+    )
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mime_type: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    visibility: Mapped[str] = mapped_column(
+        String(20),
+        default="public",
+        nullable=False,
+        comment="public|unlisted|private",
+    )
+
     translations = relationship(
         "ResourceTranslation",
         back_populates="resource",
@@ -259,6 +332,10 @@ class CarouselSlide(Base):
     caption_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     caption_sw: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Screen-reader description for the slide image.  ``text_*`` is what a
+    # sighted reader sees drawn on the slide, so it cannot double as alt text.
+    alt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     resource = relationship("Resource", back_populates="carousel_slides")
 
 
@@ -287,6 +364,12 @@ class BookChapter(Base):
     file_url_sw: Mapped[str | None] = mapped_column(
         String(500), nullable=True
     )
+
+    # In-browser reading text for a chapter.  A chapter may be a PDF (rendered
+    # by the reader's document pane), plain reading text, or both - the reader
+    # prefers the text when it exists because it is far more accessible.
+    body_en: Mapped[str | None] = mapped_column(Text, nullable=True)
+    body_sw: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)

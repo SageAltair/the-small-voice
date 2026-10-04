@@ -80,7 +80,7 @@ export default function Navbar() {
           </NavLink>
 
           <NavLink to="/resources" onClick={() => setMenuOpen(false)}>
-            {t.resources}
+            {t.resources.label}
           </NavLink>
 
           <NavLink to="/about" onClick={() => setMenuOpen(false)}>

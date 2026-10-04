@@ -24,6 +24,8 @@ import Home from "./pages/Home";
 import Stories from "./pages/Stories";
 import StoryDetail from "./pages/StoryDetail";
 import Resources from "./pages/Resources";
+import ResourceBrowse from "./pages/ResourceBrowse";
+import ResourceDetail from "./pages/ResourceDetail";
 import Journeys from "./pages/Journeys";
 import Learn from "./pages/Learn";
 import LearnPath from "./pages/LearnPath";
@@ -54,12 +56,24 @@ import ExperienceBuilder from "./pages/ExperienceBuilder";
 // Language
 import { LanguageProvider } from "./i18n/LanguageContext";
 
+// Resources
+import { AudioProvider } from "./resources/AudioPlayer";
+import AudioMiniPlayer from "./resources/AudioMiniPlayer";
+import AdminResources from "./pages/AdminResources";
+
 
 export default function App() {
   return (
     <BrowserRouter>
       <LanguageProvider>
-        <AppLayout />
+        {/*
+          The audio player sits above the router so the <audio> element is
+          never unmounted by navigation - that is what lets a teaching keep
+          playing while the reader browses to a related resource.
+        */}
+        <AudioProvider>
+          <AppLayout />
+        </AudioProvider>
       </LanguageProvider>
     </BrowserRouter>
   );
@@ -105,6 +119,26 @@ function AppLayout() {
           <Route
             path="/resources"
             element={<Resources />}
+          />
+
+          {/*
+            Resources discovery and detail. `/resources/browse` is declared
+            before `/resources/:type` so a shared "browse" link is not read as
+            a resource type called "browse".
+          */}
+          <Route
+            path="/resources/browse"
+            element={<ResourceBrowse />}
+          />
+
+          <Route
+            path="/resources/:type"
+            element={<ResourceBrowse />}
+          />
+
+          <Route
+            path="/resources/:type/:slug"
+            element={<ResourceDetail />}
           />
 
           <Route
@@ -240,6 +274,13 @@ function AppLayout() {
             element={<AdminStories />}
           />
 
+          {/* The Resources studio is a full-page workspace like Practice, so
+              it owns its own route rather than being a panel in the CMS. */}
+          <Route
+            path="/admin/resources"
+            element={<AdminResources />}
+          />
+
           {/* The Practice studio is a full-screen authoring tool, like the Experience
               Builder: it owns its own tabs, filters and preview. */}
 
@@ -267,6 +308,9 @@ function AppLayout() {
       </main>
 
       {isAdmin && <><WorkspaceThemeToggle /><WorkspaceMobileControls /></>}
+
+      {/* The mini-player follows the reader across the public site. */}
+      {!isAdmin && <AudioMiniPlayer />}
 
       {/* Public footer */}
       {!isAdmin && <Footer />}

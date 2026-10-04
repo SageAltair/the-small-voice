@@ -11,7 +11,11 @@ import { api } from "../services/api";
 const sections = [
   { id: "stories", label: "Stories", icon: BookOpen },
   { id: "approvals", label: "Approvals", icon: CheckCircle2 },
-  { id: "resources", label: "Resources", icon: Library },
+  // Resources has its own whole-document studio, like Practice below: the old
+  // flat panel here could only ever create a one-type draft (and its create
+  // form posts the legacy payload), so the console links to the studio rather
+  // than keeping a second, weaker editor for the same table.
+  { id: "resources", label: "Resources", icon: Library, href: "/admin/resources" },
   { id: "learn", label: "Learn", icon: GraduationCap },
   { id: "practice", label: "Practice", icon: Brain, href: "/admin/practice" },
   { id: "tags", label: "Topics", icon: Tags },
@@ -59,12 +63,12 @@ export default function AdminConsole() {
     setData(overview);
     try {
       setTrash(await getTrash());
-    } catch (err) {
+    } catch {
       // Data still loaded; trash badge just stays as it was.
     }
     try {
       setExperiences(await api.listExperiences());
-    } catch (err) {
+    } catch {
       // Experiences may not be accessible; that's okay.
     }
     try {
@@ -89,15 +93,27 @@ export default function AdminConsole() {
   const loadExperiences = async () => {
     try {
       setExperiences(await api.listExperiences());
-    } catch (err) {
+    } catch {
       // Silently fail - experiences list is not critical
     }
   };
 
+  // Boot the workspace once after mount: pull the admin lists in the
+  // background. This is an intentional one-time data load, not a React-state
+  // sync, so the set-state-in-effect guideline does not apply here.
   useEffect(() => {
-    if (localStorage.getItem("access_token")) {
-      refresh().catch(() => localStorage.removeItem("access_token"));
-    }
+    if (!localStorage.getItem("access_token")) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        await refresh();
+      } catch {
+        if (!cancelled) localStorage.removeItem("access_token");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const showError = (err) => {

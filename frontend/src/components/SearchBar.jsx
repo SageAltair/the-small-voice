@@ -5,9 +5,13 @@ import { useLanguage } from "../i18n/LanguageContext";
 
 export default function SearchBar({
   onSearch,
+  searchLabel,
+  placeholder,
 }) {
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
+  const label = searchLabel || t.searchStories;
+  const hint = placeholder || `${t.searchStories}...`;
 
 
   function handleSubmit(event) {
@@ -35,8 +39,8 @@ export default function SearchBar({
         onChange={(event) =>
           setQuery(event.target.value)
         }
-        placeholder={`${t.searchStories}...`}
-        aria-label={t.searchStories}
+        placeholder={hint}
+        aria-label={label}
       />
 
       <button type="submit">

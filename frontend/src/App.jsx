@@ -19,6 +19,11 @@ import { useEffect, useState } from "react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
+// Preferences: the single source for theme, density, motion and every other
+// saved choice. It sits above the router so a change reaches pages that have
+// not mounted yet.
+import { PreferencesProvider, usePreferences } from "./settings/PreferencesContext";
+
 // Public pages
 import Home from "./pages/Home";
 import Stories from "./pages/Stories";
@@ -43,6 +48,9 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Give from "./pages/Give";
 import NotFound from "./pages/NotFound";
+// Aliased: lucide-react already exports an icon called Settings, which the
+// workspace chrome below still uses.
+import SettingsPage from "./pages/Settings";
 
 // // Authentication
 // import Login from "./pages/Login";
@@ -72,7 +80,9 @@ export default function App() {
           playing while the reader browses to a related resource.
         */}
         <AudioProvider>
-          <AppLayout />
+          <PreferencesProvider>
+            <AppLayout />
+          </PreferencesProvider>
         </AudioProvider>
       </LanguageProvider>
     </BrowserRouter>
@@ -230,6 +240,19 @@ function AppLayout() {
             element={<TermsOfUse />}
           />
 
+          {/* Settings owns its own sections rather than one long page, so a
+              section can be linked to, bookmarked and reached with the back
+              button. /settings alone opens the first section. */}
+          <Route
+            path="/settings"
+            element={<SettingsPage />}
+          />
+
+          <Route
+            path="/settings/:section"
+            element={<SettingsPage />}
+          />
+
 
           {/* =========================
               AUTHENTICATION ROUTES
@@ -318,23 +341,43 @@ function AppLayout() {
   );
 }
 
+/* The admin workspace keeps its own chrome - a full-page authoring tool rather
+   than the public site - but its theme switch is the same preference everyone
+   else uses, so switching themes inside the workspace and then leaving it does
+   not snap back. */
 function WorkspaceThemeToggle() {
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || document.documentElement.dataset.theme || "light");
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem("theme", theme); }, [theme]);
-  return <button className="workspace-theme-toggle" onClick={() => setTheme((current) => current === "light" ? "dark" : "light")} aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`} title="Toggle light and dark mode">{theme === "light" ? <Moon size={18} /> : <Sun size={18} />}</button>;
+  const { setPreference, resolvedTheme } = usePreferences();
+  const isDark = resolvedTheme === "dark";
+
+  return (
+    <button
+      className="workspace-theme-toggle"
+      onClick={() => setPreference("appearance.theme", isDark ? "light" : "dark")}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title="Toggle light and dark mode"
+    >
+      {isDark ? <Moon size={18} /> : <Sun size={18} />}
+    </button>
+  );
 }
 
 function WorkspaceMobileControls() {
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || document.documentElement.dataset.theme || "light");
+  const { preferences, setPreference, resolvedTheme } = usePreferences();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(() => document.body.classList.contains("dashboard-menu-open"));
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+  const isDark = resolvedTheme === "dark";
 
-  useEffect(() => () => document.body.classList.remove("dashboard-menu-open"), []);
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    function closeMenu() {
+      document.body.classList.remove("dashboard-menu-open");
+    }
+
+    document.addEventListener("click", closeMenu);
+    return () => document.removeEventListener("click", closeMenu);
+  }, [menuOpen]);
 
   function toggleMenu() {
     const next = !menuOpen;
@@ -351,7 +394,7 @@ function WorkspaceMobileControls() {
   return <div className="workspace-mobile-controls">
     <button className="workspace-mobile-button" onClick={toggleMenu} aria-label={menuOpen ? "Close workspace menu" : "Open workspace menu"}>{menuOpen ? <X size={21} /> : <Menu size={21} />}</button>
     <button className="workspace-mobile-button" onClick={() => { setSettingsOpen((open) => !open); closeMenu(); }} aria-label="Workspace settings"><Settings size={20} /></button>
-    {settingsOpen && <section className="workspace-mobile-settings"><span>Workspace settings</span><button onClick={() => setTheme((current) => current === "light" ? "dark" : "light")}>{theme === "light" ? <Moon size={17} /> : <Sun size={17} />}{theme === "light" ? "Night mode" : "Light mode"}</button><button className="sign-out" onClick={() => { localStorage.removeItem("access_token"); window.location.assign("/"); }}><LogOut size={17} />Sign out</button></section>}
+    {settingsOpen && <section className="workspace-mobile-settings"><span>Workspace settings</span><button onClick={() => setPreference("appearance.theme", isDark ? "light" : "dark")}>{isDark ? <Moon size={17} /> : <Sun size={17} />}{isDark ? "Night mode" : "Light mode"}</button><button className="sign-out" onClick={() => { localStorage.removeItem("access_token"); window.location.assign("/"); }}><LogOut size={17} />Sign out</button><p>Theme: {preferences.appearance.theme}</p></section>}
     {menuOpen && <button className="workspace-mobile-scrim" aria-label="Close workspace menu" onClick={closeMenu} />}
   </div>;
 }

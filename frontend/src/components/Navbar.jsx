@@ -1,50 +1,67 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Link, NavLink } from "react-router-dom";
-import { Menu, Moon, Settings, Sun, X } from "lucide-react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { ChevronDown, Menu, Settings, X } from "lucide-react";
 import { useLanguage } from "../i18n/LanguageContext";
 import logoSymbol from "../assets/small-voice-symbol.svg";
 import logoDark from "../assets/small-voice-dark-mode.svg";
 
 
 export default function Navbar() {
-  const { language, setLanguage, t } = useLanguage();
-  const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem("theme");
-
-    if (savedTheme) return savedTheme;
-
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  });
+  const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsRef = useRef(null);
+  const learnRef = useRef(null);
+  const { pathname } = useLocation();
 
+  /* The menu is open only while the route is the one it was opened on. Storing
+     the route rather than a boolean is what closes it on navigation - including
+     the browser's back button, which no click handler ever sees - without a
+     setState inside an effect. */
+  const [openedOn, setOpenedOn] = useState(null);
+  const learnOpen = openedOn === pathname;
+
+  const openLearn = () => setOpenedOn(pathname);
+  const closeLearn = () => setOpenedOn(null);
+
+  /* Learn, Resources, Journey and Practice all belong to one subject - going
+     deeper - so they live behind a single dropdown rather than four items in
+     the bar. What is left is Stories, Learn, About, Contact and Give. */
+  const learnLinks = [
+    { to: "/learn", label: t.learnLabel },
+    { to: "/resources", label: t.resources.label },
+    { to: "/journeys", label: t.journeysLabel },
+    { to: "/practice", label: t.practice.nav },
+  ];
+
+  const learnActive = learnLinks.some(({ to }) => pathname.startsWith(to));
+
+  /* The dropdown is hover-driven on a pointer and tap-driven on a phone, so
+     every way of leaving it has to close it: a click elsewhere and the Escape
+     key. Leaving by navigating is handled by the route comparison above. */
   useEffect(() => {
     function handleClickOutside(event) {
-      if (settingsRef.current && !settingsRef.current.contains(event.target)) {
-        setSettingsOpen(false);
+      if (learnRef.current && !learnRef.current.contains(event.target)) {
+        closeLearn();
       }
     }
-    if (settingsOpen) {
+    function handleKeyDown(event) {
+      if (event.key === "Escape") closeLearn();
+    }
+    if (learnOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("touchstart", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [settingsOpen]);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+  }, [learnOpen]);
 
   function closeNav() {
     setMenuOpen(false);
+    closeLearn();
   }
 
   return (
@@ -65,64 +82,69 @@ export default function Navbar() {
             {t.stories}
           </NavLink>
 
-          <NavLink to="/journeys" onClick={() => setMenuOpen(false)}>
-            Journeys
-          </NavLink>
+          {/* One item, four destinations. The button rather than a bare link is
+              what makes this a menu: it owns the open state and reports it to
+              assistive technology through aria-expanded. */}
+          <div
+            className="dropdown"
+            ref={learnRef}
+            onMouseEnter={openLearn}
+            onMouseLeave={closeLearn}
+          >
+            <button
+              type="button"
+              className={`dropdown-toggle ${learnActive ? "active" : ""}`}
+              onClick={() => (learnOpen ? closeLearn() : openLearn())}
+              aria-expanded={learnOpen}
+              aria-haspopup="true"
+              aria-controls="learn-menu"
+            >
+              {t.learnLabel}
+              <ChevronDown size={13} strokeWidth={2.2} aria-hidden="true" className="dropdown-chevron" />
+            </button>
 
-          <NavLink to="/learn" onClick={() => setMenuOpen(false)}>
-            Learn
-          </NavLink>
+            <div id="learn-menu" className={`dropdown-menu ${learnOpen ? "open" : ""}`}>
+              {learnLinks.map(({ to, label }) => (
+                <NavLink key={to} to={to} onClick={closeNav} className="dropdown-item">
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          </div>
 
-          {/* Practice sits next to Learn: one teaches, the other helps you
-              remember and apply it. */}
-          <NavLink to="/practice" onClick={() => setMenuOpen(false)}>
-            {t.practice.nav}
-          </NavLink>
-
-          <NavLink to="/resources" onClick={() => setMenuOpen(false)}>
-            {t.resources.label}
-          </NavLink>
-
-          <NavLink to="/about" onClick={() => setMenuOpen(false)}>
+          <NavLink to="/about" onClick={closeNav}>
             {t.about}
           </NavLink>
 
-          <NavLink to="/contact" onClick={() => setMenuOpen(false)}>
+          <NavLink to="/contact" onClick={closeNav}>
             {t.contact}
           </NavLink>
 
-          <NavLink to="/give" onClick={() => setMenuOpen(false)}>
+          <NavLink to="/give" onClick={closeNav}>
             {t.give}
           </NavLink>
 
         </nav>
 
-         <div className="nav-settings" ref={settingsRef}>
-            <button type="button" className="settings-toggle"
-              onClick={() => setSettingsOpen((open) => !open)}
-              aria-expanded={settingsOpen}
-              aria-label={settingsOpen ? "Close settings" : "Open settings"}
-              title="Settings"
-            >
-              <Settings size={16} aria-hidden="true" />
-            </button>
-            {settingsOpen && <div className="settings-dropdown">
-              <div className="settings-dropdown-section">
-                <span className="settings-dropdown-label">{t.toggleTheme}</span>
-                <button type="button" className="settings-dropdown-item" onClick={() => setTheme((currentTheme) => currentTheme === "light" ? "dark" : "light")}>
-                  {theme === "light" ? <Moon size={15} aria-hidden="true" /> : <Sun size={15} aria-hidden="true" />}
-                  {theme === "light" ? t.dark : t.light}
-                </button>
-              </div>
-              <div className="settings-dropdown-section">
-                <span className="settings-dropdown-label">{t.language}</span>
-                <select value={language} onChange={(event) => { setLanguage(event.target.value); setSettingsOpen(false); }} aria-label={t.language} className="settings-dropdown-select">
-                  <option value="en">{t.english}</option>
-                  <option value="sw">{t.swahili}</option>
-                </select>
-              </div>
-            </div>}
-          </div>
+        <div className="nav-settings">
+          {/* The gear opens the settings popup. It is a link, not a button, so it
+              still works with middle-click, "open in new tab" and the browser's
+              own bookmark - and because it is a route, the panel closes itself
+              when the reader navigates anywhere else.
+
+              This used to be a dropdown holding a dark-mode toggle and a language
+              picker. Now that both of those live in the popup, one click further,
+              the dropdown was a second door to the same room - and two identical
+              gears sitting in the corner. */}
+          <Link
+            to="/settings"
+            className="settings-toggle"
+            aria-label={t.settings.all}
+            title={t.settings.all}
+          >
+            <Settings size={16} aria-hidden="true" />
+          </Link>
+        </div>
       </div>
     </header>
   );

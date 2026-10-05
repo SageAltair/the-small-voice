@@ -6,12 +6,17 @@ const translations = {
     stories: "Stories",
     resources: "Resources",
     admin: "Admin",
-    about: "About us",
-    contact: "Contact us",
+    about: "About",
+    contact: "Contact",
     give: "Give",
     language: "Language",
     english: "English",
     swahili: "Swahili",
+    settings: {
+      // The navbar dropdown is the doorway to the full page, not a second,
+      // smaller version of it. One label sends people to the whole thing.
+      all: "All settings",
+    },
     discover: "Stories, testimonies, ideas, and experiences that open the door to deeper questions.",
     learn: "Books, videos, courses, guides, and other resources to help you go deeper.",
     exploreStories: "Explore stories",
@@ -35,6 +40,14 @@ const translations = {
     explore: "Explore",
     topics: "Topics",
     topicsSoon: "Discover topics soon",
+    // Nav dropdown label. The page heading is "Your journey", so this is the
+    // bare noun - the navbar has room for one word, not two.
+    journeysLabel: "Journey",
+    // The homepage discovery box: reels on one side, topics on the other, and
+    // one boxed arrow that opens the full list.
+    reels: "Reels",
+    reelsDescription: "Short videos worth sitting with.",
+    allTopics: "All topics",
     community: "Community",
     joinCommunity: "Join the Community",
     shareStory: "Share Your Story",
@@ -118,12 +131,15 @@ const translations = {
     stories: "Hadithi",
     resources: "Rasilimali",
     admin: "Msimamizi",
-    about: "Kuhusu sisi",
-    contact: "Wasiliana nasi",
+    about: "Kuhusu",
+    contact: "Mawasiliano",
     give: "Toa",
     language: "Lugha",
     english: "Kiingereza",
     swahili: "Kiswahili",
+    settings: {
+      all: "Mipangilio yote",
+    },
     discover: "Hadithi, ushuhuda, mawazo na uzoefu unaofungua mlango wa maswali ya kina.",
     learn: "Vitabu, video, kozi, miongozo na rasilimali nyingine za kukusaidia kujifunza zaidi.",
     exploreStories: "Chunguza hadithi",
@@ -147,6 +163,10 @@ const translations = {
     explore: "Chunguza",
     topics: "Mada",
     topicsSoon: "Mada zitapatikana hivi karibuni",
+    journeysLabel: "Safari",
+    reels: "Vipindi",
+    reelsDescription: "Video fupi zenye kuzingatia.",
+    allTopics: "Mada zote",
     community: "Jumuiya",
     joinCommunity: "Jiunge na Jumuiya",
     shareStory: "Shiriki Hadithi",
@@ -229,6 +249,7 @@ const translations = {
 
 import { practiceCopy } from "./practiceCopy";
 import { resourcesCopy } from "./resourceCopy";
+import { settingsCopy } from "./settingsCopy";
 
 const LanguageContext = createContext(null);
 
@@ -251,6 +272,7 @@ export function LanguageProvider({ children }) {
       // and burying them at the top level would make both files unreadable.
       practice: practiceCopy[language] || practiceCopy.en,
       resources: resourcesCopy[language] || resourcesCopy.en,
+      settings: settingsCopy[language] || settingsCopy.en,
     },
   };
 

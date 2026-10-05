@@ -24,6 +24,7 @@ the-small-voice/
 │   │   ├── pages/        Route Page components
 │   │   ├── services/     API client (api.js)
 │   │   ├── i18n/         Language context
+│   │   ├── settings/     Preferences store, sections, search, dialog
 │   │   ├── hooks/        Custom React hooks
 │   │   ├── assets/       Project images/icons
 │   │   ├── App.jsx       Root component + routing
@@ -222,6 +223,26 @@ DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/the_small_voi
 cd backend
 .venv/Scripts/activate
 pytest
+`
+
+Frontend unit tests (Vitest) and lint:
+
+`cd frontend
+npm run lint
+npm test
+`
+
+### Settings browser test
+
+`frontend/e2e_settings.cjs` drives the Settings popup in a real browser and writes
+screenshots to `frontend/e2e-settings-shots/` (gitignored). It uses
+`puppeteer-core`, which is declared as a dev dependency, so a clean checkout can run
+it after `npm install`. It needs a Chrome or Edge binary already on the machine -
+`puppeteer-core` deliberately does not download one. Set `CHROME_PATH` to the
+executable if the script cannot find a browser.
+
+`cd frontend
+npm run test:settings
 `
 
 ## License

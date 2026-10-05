@@ -25,6 +25,7 @@ import {
 import { useLanguage } from "../i18n/LanguageContext";
 import { fill } from "../i18n/resourceCopy";
 import { getImageUrl } from "../services/api";
+import { readStoredPreferences } from "../settings/preferences";
 import DocumentViewer from "./DocumentViewer";
 
 const SIZES = [16, 18, 20, 22, 25];
@@ -47,12 +48,22 @@ function readMode() {
  * an <option> would give. Keeping it numeric means the button that increases
  * the size can ask "am I already at the top?" with a comparison rather than
  * with a string sort.
+ *
+ * When the reader has not chosen a size here, the one they chose in Settings >
+ * Reading > Font size is used instead. That is the whole point of a global
+ * reading preference: setting it once should not have to be repeated in every
+ * book.
  */
 function readSizeIndex() {
+  const fallbacks = { small: 0, default: 1, large: 3, xlarge: 4 };
+
   try {
     const value = Number(localStorage.getItem("res-book-size"));
     const index = SIZES.indexOf(value);
-    return index >= 0 ? index : DEFAULT_SIZE_INDEX;
+    if (index >= 0) return index;
+
+    const chosen = readStoredPreferences().reading.fontSize;
+    return fallbacks[chosen] ?? DEFAULT_SIZE_INDEX;
   } catch {
     return DEFAULT_SIZE_INDEX;
   }

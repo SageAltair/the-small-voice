@@ -3,11 +3,21 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { getMyLearnProgress } from "../services/learnApi";
 import { useLanguage } from "../i18n/LanguageContext";
+import { usePreferences } from "../settings/PreferencesContext";
 import "../learn.css";
 
-/** The completion bar every Learn surface shares (path page, continue lists). */
+/**
+ * The completion bar every Learn surface shares (path page, continue lists).
+ *
+ * Someone who would rather see only what is ahead can switch it off in
+ * Settings > Learning > Show learning progress. That is a display preference,
+ * not a change to the progress itself: the counts still exist on the server and
+ * still drive what "Resume" points at.
+ */
 export function LearnProgressBar({ progress }) {
-  if (!progress) return null;
+  const { preferences } = usePreferences();
+
+  if (!progress || !preferences.learning.showProgress) return null;
 
   const percent = progress.percent ?? 0;
 

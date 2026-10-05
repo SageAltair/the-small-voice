@@ -14,15 +14,55 @@
     <meta name="theme-color" content="#191b19" media="(prefers-color-scheme: dark)" />
 
     <script>
-      // Apply the saved (or system) theme before first paint so the correct
-      // logo variant and colours are shown immediately - no light-mode flash
-      // for dark-mode visitors. Mirrors the logic in Navbar.jsx.
+      // Apply the saved preferences before the first paint so the correct
+      // colours, text size and logo variant are on screen immediately - no
+      // light-mode flash for dark-mode visitors, and no one reading at the
+      // wrong size for a frame.
+      //
+      // This is the same logic as applyPreferences() in src/settings/preferences.js,
+      // written out longhand because it has to run before the bundle exists.
+      // PreferencesContext takes over from here and keeps it in step.
       (function () {
-        var saved = localStorage.getItem("theme");
+        var root = document.documentElement;
+        var prefs = null;
+
+        try {
+          prefs = JSON.parse(localStorage.getItem("tsv.preferences.v1") || "null");
+        } catch (error) {
+          prefs = null;
+        }
+
+        var appearance = (prefs && prefs.appearance) || {};
+        var accessibility = (prefs && prefs.accessibility) || {};
+        var reading = (prefs && prefs.reading) || {};
+
+        // A "theme" key was written before settings existed; honour it once so
+        // nobody who set dark mode before this update loses it.
+        var chosen =
+          appearance.theme ||
+          localStorage.getItem("theme") ||
+          "system";
+        var systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
         var theme =
-          saved ||
-          (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-        document.documentElement.dataset.theme = theme;
+          chosen === "system" ? (systemDark ? "dark" : "light") : chosen;
+
+        root.dataset.theme = theme;
+        root.style.colorScheme = theme;
+        root.dataset.themePreference = chosen;
+        root.dataset.density = appearance.density || "comfortable";
+        root.dataset.textSize = accessibility.textSize || "default";
+        root.dataset.contrast = accessibility.contrast || "standard";
+        root.dataset.focus = accessibility.focus || "standard";
+        root.dataset.readingFontSize = reading.fontSize || "default";
+        root.dataset.readingLineSpacing = reading.lineSpacing || "comfortable";
+        root.dataset.readingWidth = reading.width || "default";
+        root.dataset.scriptureDisplay = reading.scripture || "inline";
+
+        var reduced =
+          appearance.motion === "reduced" ||
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        root.dataset.motion = reduced ? "reduced" : "full";
       })();
     </script>
 

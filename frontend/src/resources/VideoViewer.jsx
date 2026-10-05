@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Maximize2, Pause, Play, Volume2, VolumeX } from "lucide-react";
 
 /**
@@ -13,14 +13,20 @@ import { Maximize2, Pause, Play, Volume2, VolumeX } from "lucide-react";
  * The detail page gives this component a `key` of the resource id, so opening
  * a different clip remounts it cleanly instead of needing an effect to reset
  * the position by hand.
+ *
+ * A clip never starts on its own unless the Learning setting "Play video
+ * automatically" is on, and even then the browser's own autoplay rules still
+ * have the final word - muted autoplay is usually the only kind allowed.
  */
 
 import { useLanguage } from "../i18n/LanguageContext";
 import { getImageUrl, getResourceUrl } from "../services/api";
+import { usePreferences } from "../settings/PreferencesContext";
 import { excerpt } from "./resourceUtils";
 
 export default function VideoViewer({ resource }) {
   const { t } = useLanguage();
+  const { preferences } = usePreferences();
   const frameRef = useRef(null);
   const videoRef = useRef(null);
 
@@ -36,6 +42,15 @@ export default function VideoViewer({ resource }) {
   const src = getResourceUrl(resource?.media_url || resource?.url);
   const poster = getImageUrl(resource?.cover_url || null);
   const isPortrait = resource?.type === "reel";
+
+  /* Autoplay is opt-in and the browser still has the last word: a rejected
+     play() is reported as a failed clip, which is the same state the reader
+     already sees when a file will not load. */
+  useEffect(() => {
+    if (!preferences.learning.autoplayVideo || !src) return;
+
+    videoRef.current?.play().catch(() => setFailed(true));
+  }, [preferences.learning.autoplayVideo, src]);
 
   function toggle() {
     const video = videoRef.current;

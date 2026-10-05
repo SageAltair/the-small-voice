@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:settings": "vite build && node e2e_settings.cjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
+    "puppeteer-core": "^25.12.0",
     "vite": "^8.2.0",
     "vitest": "^5.0.2"
   }

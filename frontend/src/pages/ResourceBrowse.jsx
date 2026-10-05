@@ -22,6 +22,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { useLanguage } from "../i18n/LanguageContext";
 import { fill } from "../i18n/resourceCopy";
+import { usePreferences } from "../settings/PreferencesContext";
 import {
   getResourceTypes,
   listResources,
@@ -39,6 +40,23 @@ import "../resources/resources.css";
 /** Six a page, matching Stories, so both shelves scan at the same pace. */
 const PAGE_SIZE = 6;
 
+/* The nine content-type preferences the settings page offers do not name
+   themselves the way the API does: a reader who unticks "Images" means the
+   photographs and the infographics alike, and "Video" covers reels too. This is
+   the one place that mapping exists, so a new resource type has exactly one
+   question to answer. */
+const TYPE_PREFERENCE = {
+  reel: "video",
+  video: "video",
+  audio: "audio",
+  book: "practical",
+  carousel: "images",
+  image: "images",
+  infographic: "images",
+  quote: "articles",
+  document: "practical",
+};
+
 const SORTS = [
   ["recommended", "sortRecommended"],
   ["newest", "sortNewest"],
@@ -49,6 +67,7 @@ const SORTS = [
 
 export default function ResourceBrowse() {
   const { t, language } = useLanguage();
+  const { preferences } = usePreferences();
   const [params, setParams] = useSearchParams();
 
   // The URL owns the whole query state; nothing here is only in React state.
@@ -172,7 +191,15 @@ export default function ResourceBrowse() {
           aria-label={t.resources.filterByType}
         >
           <option value="">{t.resources.allTypes}</option>
-          {RESOURCE_TYPES.filter((item) => !counts[item] || counts[item] > 0).map(
+          {/* Settings > Content > Content you like narrows this filter to the
+              kinds of material the reader has asked for. A type that is already
+              active in the URL always stays on the list, so following a shared
+              link can never land the reader on an empty page. */}
+          {RESOURCE_TYPES.filter(
+            (item) =>
+              preferences.content.types[TYPE_PREFERENCE[item]] !== false &&
+              (!counts[item] || counts[item] > 0),
+          ).map(
             (item) => (
               <option key={item} value={item}>
                 {t.resources.types?.[item] || item}

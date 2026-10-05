@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Clock, Play } from "luci
 import { getLearnPath, recordLearnEvent } from "../services/learnApi";
 import { getImageUrl } from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
+import { usePreferences } from "../settings/PreferencesContext";
 import { LearnProgressBar } from "../components/LearnContinue";
 import "../learn.css";
 
@@ -17,6 +18,7 @@ const LEVEL_LABELS = {
 export default function LearnPath() {
   const { pathSlug } = useParams();
   const { language } = useLanguage();
+  const { preferences } = usePreferences();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
@@ -68,6 +70,13 @@ export default function LearnPath() {
   const current =
     progress?.current_lesson || lessons.find((lesson) => !lesson.completed) || lessons[0];
   const resumeHref = current ? `/learn/lesson/${current.id}` : null;
+
+  /* Settings > Learning > Show lessons I have finished. Hiding a completed
+     lesson is a view choice: the numbers are untouched, and turning the setting
+     back on brings every one of them straight back. */
+  const visibleLessons = preferences.learning.showCompleted
+    ? lessons
+    : lessons.filter((lesson) => !lesson.completed);
 
   return (
     <div className="learn-page">
@@ -121,7 +130,7 @@ export default function LearnPath() {
 
         <section aria-label="Lessons">
           <div className="learn-lessons">
-            {lessons.map((lesson, index) => (
+            {visibleLessons.map((lesson) => (
               <Link
                 key={lesson.id}
                 to={`/learn/lesson/${lesson.id}`}
@@ -130,7 +139,7 @@ export default function LearnPath() {
                 }`}
               >
                 <span className="learn-lesson-number" aria-hidden="true">
-                  {lesson.completed ? <CheckCircle2 size={16} /> : index + 1}
+                  {lesson.completed ? <CheckCircle2 size={16} /> : lessons.indexOf(lesson) + 1}
                 </span>
                 <h3 className="learn-lesson-title">{lesson.title}</h3>
                 <span className="learn-lesson-meta">

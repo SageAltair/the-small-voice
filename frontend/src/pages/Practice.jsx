@@ -17,6 +17,7 @@ import {
   updatePracticeApplication,
 } from "../services/practiceApi";
 import { useLanguage } from "../i18n/LanguageContext";
+import { usePreferences } from "../settings/PreferencesContext";
 import { orderConceptsForDashboard, streakMessage } from "../practice/engine";
 import "../practice.css";
 
@@ -47,14 +48,20 @@ const STAGE_COPY = {
 const MODES = ["quick", "normal", "deep"];
 const MODE_COPY = { quick: "timeQuick", normal: "timeNormal", deep: "timeDeep" };
 
+/* Settings > Learning > Learning pace decides which session this page opens on.
+   The learner can still pick any of the three; this only chooses for them, so
+   somebody who has said "gentle" does not have to remember it every day. */
+const PACE_MODE = { gentle: "quick", normal: "normal", focused: "deep" };
+
 export default function Practice() {
   const { language, t } = useLanguage();
   const p = t.practice;
   const navigate = useNavigate();
+  const { preferences } = usePreferences();
 
   const [home, setHome] = useState(null);
   const [error, setError] = useState("");
-  const [mode, setMode] = useState("normal");
+  const [mode, setMode] = useState(() => PACE_MODE[preferences.learning.pace] || "normal");
   const [busy, setBusy] = useState("");
 
   const load = useCallback(() => {

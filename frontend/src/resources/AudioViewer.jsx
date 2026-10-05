@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Music, Pause, Play, RotateCcw } from "lucide-react";
 
 /**
@@ -10,10 +11,16 @@ import { Music, Pause, Play, RotateCcw } from "lucide-react";
  *
  * The seek bar is a range input, so it is keyboard operable and announces its
  * position, instead of being a bar that only responds to a click.
+ *
+ * Opening a recording does not start it. The one exception is the Learning
+ * setting "Play audio automatically", which is off by default - sound that
+ * starts on its own is startling, and a setting nobody asked for should not
+ * do it.
  */
 
 import { useLanguage } from "../i18n/LanguageContext";
 import { getImageUrl, getResourceUrl } from "../services/api";
+import { usePreferences } from "../settings/PreferencesContext";
 import { useAudio } from "./AudioPlayer";
 import { formatDuration } from "./resourceUtils";
 
@@ -22,6 +29,7 @@ const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 export default function AudioViewer({ resource }) {
   const { t } = useLanguage();
   const audio = useAudio();
+  const { preferences } = usePreferences();
 
   const src = getResourceUrl(resource?.media_url || resource?.url);
   const cover = getImageUrl(resource?.cover_url || null);
@@ -31,6 +39,13 @@ export default function AudioViewer({ resource }) {
   const progress = isCurrent ? audio?.progress || 0 : 0;
   const duration =
     (isCurrent ? audio?.duration : 0) || resource?.duration || 0;
+
+  /* Only fires while the track is not already loaded, so walking away from a
+     recording and coming back to it does not start it all over again. */
+  useEffect(() => {
+    if (!preferences.learning.autoplayAudio || !src || isCurrent) return;
+    audio?.load(resource);
+  }, [audio, isCurrent, preferences.learning.autoplayAudio, resource, src]);
 
   function toggle() {
     if (!audio || !src) return;

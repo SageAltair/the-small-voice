@@ -31,3 +31,5 @@ export-out/
 # Scratch output from end-to-end runs
 *_out.txt
 diag.png
+# Screenshots written by the settings browser test
+e2e-settings-shots/

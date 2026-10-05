@@ -1,0 +1,839 @@
+/* ==========================================================================
+   Settings
+
+   Built on the site's own tokens (--canvas, --surface, --line, --accent) so the
+   popup inherits light and dark mode instead of carrying a second palette, and
+   on the site's own spacing and type scale so it reads as another part of The
+   Small Voice rather than a control panel bolted onto it.
+
+   Settings is an overlay, not a page. The shape follows from that: a scrim the
+   reader can dismiss by clicking away from, a panel that is a card on a desktop
+   and a full-height sheet on a phone, and one scrolling body so the search box
+   and the section rail stay put while fourteen sections scroll past.
+   ========================================================================== */
+
+.settings-scrim {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  inset: 0;
+  background: rgb(15 23 42 / 58%);
+  /* No fade-in: a settings panel that animates open is a settings panel that
+     animates in the way of somebody who has asked for less movement. */
+}
+
+.settings-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(1040px, 100%);
+  max-height: min(88vh, 940px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--canvas);
+  box-shadow: var(--shadow);
+}
+
+.settings-modal:focus {
+  outline: none;
+}
+
+.settings-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px clamp(18px, 3vw, 32px);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.settings-modal-title .eyebrow {
+  margin-bottom: 2px;
+}
+
+.settings-modal-title h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  line-height: 1.05;
+}
+
+.settings-modal-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .72rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.settings-modal-close:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* The one scrolling region. Everything sticky in the panel is sticky to this. */
+.settings-body {
+  min-height: 0;
+  padding: 0 clamp(18px, 3vw, 32px) 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* --------------------------------- search --------------------------------- */
+
+/* Sticky to the scrolling body, so searching is always one tap away no matter
+   how far down the fourteen sections the reader has gone.
+
+   The wrapper is what the panel measures: it is the full height of the search
+   block, hint text and all, which is exactly what the rail has to stop short of. */
+.settings-search-slot {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--canvas);
+}
+
+.settings-search {
+  padding: 18px 0 16px;
+}
+
+.settings-search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.settings-search-field:focus-within {
+  border-color: var(--accent);
+}
+
+.settings-search-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 12px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-search-field input::placeholder {
+  color: var(--text-muted);
+}
+
+.settings-search-clear {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.settings-search-clear:hover {
+  color: var(--text);
+}
+
+.settings-search-hint {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: .78rem;
+}
+
+.settings-search-empty {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.settings-search-empty p {
+  margin: 0 0 6px;
+}
+
+.settings-search-results {
+  margin-top: 22px;
+}
+
+.settings-search-results-title {
+  margin-bottom: 14px;
+  font-size: 1.1rem;
+}
+
+.settings-search-group {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.settings-search-group h3 {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font: 500 .68rem "DM Mono", ui-monospace, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.settings-search-group ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-search-group button {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.settings-search-group button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* --------------------------------- layout --------------------------------- */
+
+.settings-layout {
+  display: grid;
+  /* minmax(0, 1fr), not 1fr: a single grid column defaults to a min-content
+     floor, and the navigation rail is one long row of chips. With a plain 1fr
+     the page is forced out to the width of all fourteen chips together and a
+     phone scrolls sideways. */
+  grid-template-columns: minmax(0, 1fr);
+  /* No row gap below this width. A gap is a transparent strip between the
+     sticky rail and the content, so the section text scrolls visibly through
+     it; the rail's own bottom padding spaces the two instead. */
+  gap: 0;
+  align-items: start;
+}
+
+.settings-nav {
+  /* Also sticky: on a phone the rail is a single row of chips, and losing it
+     half way down would mean scrolling all the way back to change sections.
+     The offset is the height of the search block above it - see the
+     --settings-search-height custom property. */
+  position: sticky;
+  /* How far down to stop. The panel measures the search block and writes its
+     height here, because that height changes with the language and with the
+     text size preference - and a rail that overlaps the search box on Kiswahili
+     is the kind of bug nobody finds until a reader finds it. */
+  top: var(--settings-search-height, 120px);
+  z-index: 2;
+  /* Solid, or the section text scrolls visibly through the chips. The padding is
+     the strip that covers the content passing underneath, and it carries what
+     used to be a margin: a margin sits outside the background, which leaves a
+     gap the content scrolls straight through. */
+  padding: 5px 0 20px;
+  margin-bottom: 0;
+  background: var(--canvas);
+}
+
+.settings-nav ul {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0 0 4px;
+  overflow-x: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .74rem;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.settings-nav-link:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.settings-nav-link.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.settings-content {
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.settings-section-heading {
+  margin: 0 0 6px;
+  font-size: clamp(1.7rem, 3.2vw, 2.3rem);
+  line-height: 1.05;
+}
+
+.settings-section-intro {
+  max-width: 640px;
+  margin-bottom: 28px;
+  color: var(--text-muted);
+}
+
+.setting-notice {
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: .82rem;
+}
+
+/* --------------------------------- groups --------------------------------- */
+
+.setting-group {
+  margin-bottom: var(--setting-group-gap);
+}
+
+.setting-group-title {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font: 500 .7rem "DM Mono", ui-monospace, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--setting-gap);
+  padding: var(--setting-row-pad) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.setting-row--stacked {
+  display: grid;
+  gap: 12px;
+}
+
+.setting-row-text {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.setting-label {
+  color: var(--text);
+  font-size: .92rem;
+}
+
+.setting-hint {
+  color: var(--text-muted);
+  font-family: Poppins, system-ui, sans-serif;
+  font-size: .78rem;
+  line-height: 1.55;
+}
+
+.setting-row-control {
+  flex: none;
+}
+
+.setting-row--stacked .setting-row-control {
+  width: 100%;
+}
+
+.setting-note {
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  font-size: .78rem;
+}
+
+.setting-note .text-link {
+  margin-top: 0;
+}
+
+.setting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.setting-prose {
+  max-width: 640px;
+  color: var(--text-muted);
+  font-size: .92rem;
+}
+
+.setting-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: .62rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.setting-row--unavailable .setting-label {
+  color: var(--text-muted);
+}
+/* --------------------------------- switch --------------------------------- */
+
+.setting-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.setting-switch-track {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.setting-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.setting-switch input:checked + .setting-switch-track {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.setting-switch input:checked + .setting-switch-track .setting-switch-thumb {
+  background: var(--accent);
+  transform: translateX(22px);
+}
+
+.setting-switch input:focus-visible + .setting-switch-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.setting-switch-state {
+  min-width: 74px;
+  color: var(--text-muted);
+  font-size: .72rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.setting-switch.is-disabled {
+  cursor: default;
+  opacity: .75;
+}
+
+.setting-switch.is-disabled input:checked + .setting-switch-track {
+  border-color: var(--line);
+  background: var(--surface-muted);
+}
+
+.setting-switch.is-disabled input:checked + .setting-switch-track .setting-switch-thumb {
+  background: var(--text-muted);
+}
+
+/* --------------------------------- choice --------------------------------- */
+
+.setting-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setting-choice-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 17px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: .8rem;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.setting-choice-option:hover {
+  border-color: var(--accent);
+}
+
+.setting-choice-option.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.setting-choice-option input:focus-visible ~ span {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* -------------------------------- checklist ------------------------------- */
+
+.setting-checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setting-checklist-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .82rem;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.setting-checklist-item:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.setting-checklist-box {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.setting-checklist-item.is-active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.setting-checklist-item.is-active .setting-checklist-box {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.setting-checklist-item.is-active .setting-checklist-box::after {
+  width: 8px;
+  height: 4px;
+  border-bottom: 2px solid var(--canvas);
+  border-left: 2px solid var(--canvas);
+  content: "";
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.setting-checklist-item input:focus-visible ~ .setting-checklist-box {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+/* ---------------------------------- facts --------------------------------- */
+
+.setting-facts {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.setting-fact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  justify-content: space-between;
+  padding: var(--setting-row-pad) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.setting-fact dt {
+  color: var(--text-muted);
+  font-size: .8rem;
+}
+
+.setting-fact dd {
+  margin: 0;
+  color: var(--text);
+  font-size: .88rem;
+  text-align: right;
+}
+
+/* ----------------------------------- faq ---------------------------------- */
+
+.setting-faq {
+  border-top: 1px solid var(--line);
+}
+
+.setting-faq details {
+  border-bottom: 1px solid var(--line);
+}
+
+.setting-faq summary {
+  padding: var(--setting-row-pad) 0;
+  color: var(--text);
+  font-size: .92rem;
+  cursor: pointer;
+}
+
+.setting-faq summary:hover {
+  color: var(--accent);
+}
+
+.setting-faq details p {
+  max-width: 660px;
+  margin: 0 0 var(--setting-row-pad);
+  color: var(--text-muted);
+  font-size: .86rem;
+}
+
+/* --------------------------------- dialog --------------------------------- */
+
+.dialog-scrim {
+  position: fixed;
+  /* Above the settings popup: a confirmation opens on top of it, and the
+     stacking context has to say so rather than rely on document order. */
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  inset: 0;
+  background: rgb(15 23 42 / 55%);
+}
+
+.dialog {
+  width: min(520px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.dialog h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.dialog p {
+  color: var(--text-muted);
+  font-size: .88rem;
+}
+
+.dialog-keeps {
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+/* A destructive action looks like one on the button and on hover, and reads
+   correctly in dark mode - which is why these are not just the accent. */
+.button.danger {
+  border-color: #a34f42;
+  background: #a34f42;
+  color: #fff;
+}
+
+.button.danger:hover {
+  background: #8a3f34;
+}
+
+.button.danger-quiet {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.button.danger-quiet:hover {
+  border-color: #a34f42;
+  background: transparent;
+  color: #a34f42;
+}
+
+:root[data-theme="dark"] .button.danger {
+  color: #1b1512;
+}
+
+:root[data-theme="dark"] .button.danger-quiet:hover {
+  border-color: #c9897a;
+  color: #e2a49a;
+}
+
+/* ------------------------------- breakpoints ------------------------------ */
+
+/* The rail only becomes a rail when there is room for one. Below this it stays
+   a single scrolling row, so the search box above it never has to move. */
+@media (min-width: 900px) {
+  .settings-layout {
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: 40px;
+  }
+
+  .settings-nav {
+    top: 14px;
+    align-self: start;
+    max-height: calc(88vh - 140px);
+    overflow-y: auto;
+    padding: 0 0 4px;
+    margin-bottom: 18px;
+  }
+
+  .settings-nav ul {
+    display: grid;
+    gap: 3px;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .settings-nav-link {
+    width: 100%;
+    justify-content: flex-start;
+    border-color: transparent;
+    border-radius: 8px;
+    background: transparent;
+    /* Fourteen items have to fit the panel without a second scrollbar on a
+       laptop. A pointer does not need the 44px a thumb does, so the padding
+       comes down here and only here. */
+    min-height: 36px;
+    padding: 5px 12px;
+    font-size: .78rem;
+  }
+
+  .settings-nav-link.is-active {
+    border-color: transparent;
+  }
+}
+
+/* A phone gets the full screen. A card floating over the page with four
+   settings on it is worse than a sheet that says what the reader can do. */
+@media (max-width: 640px) {
+  .settings-scrim {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .settings-modal {
+    width: 100%;
+    max-height: none;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .settings-modal-head {
+    padding: 14px 16px;
+  }
+
+  .settings-body {
+    padding: 0 16px 28px;
+  }
+
+  /* Narrow rows put the control under its label so neither is squeezed, and
+     the options become a full-width list a thumb can hit without aiming. */
+  .setting-row {
+    display: grid;
+    gap: 12px;
+    justify-content: stretch;
+  }
+
+  .setting-row-control {
+    width: 100%;
+  }
+
+  .setting-row-control .setting-choice,
+  .setting-row-control .setting-checklist {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .setting-choice-option,
+  .setting-checklist-item {
+    justify-content: flex-start;
+    border-radius: 10px;
+  }
+
+  .setting-switch {
+    justify-content: space-between;
+  }
+
+  .setting-switch-state {
+    min-width: 0;
+    order: -1;
+  }
+
+  .dialog-scrim {
+    padding: 16px;
+  }
+
+  .dialog-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}

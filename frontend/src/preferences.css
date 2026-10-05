@@ -1,0 +1,194 @@
+/* ==========================================================================
+   Preferences
+
+   The application-wide half of the settings system. PreferencesContext writes
+   data-* attributes onto <html>; everything below is what those attributes
+   actually change.
+
+   Two rules for this file:
+
+   - It is loaded from main.jsx, not from the settings page. A reading size or a
+     high contrast choice has to be in place before the first paint, not after
+     someone visits a page to switch it on.
+   - It only ever restates values the site already uses. Same tokens, same
+     spacing scale, same breakpoints - so a preference changes how the site
+     feels, never how it looks like someone else's product.
+   ========================================================================== */
+
+/* ------------------------------- density ---------------------------------- */
+
+/* Comfortable is the default and the compact override is the only difference:
+   a shorter row, a tighter gap and a slightly smaller card padding. Nothing is
+   removed and nothing moves that would change where something sits. */
+:root {
+  --setting-gap: 20px;
+  --setting-row-pad: 18px;
+  --setting-card-pad: 24px;
+  --setting-group-gap: 34px;
+}
+
+:root[data-density="compact"] {
+  --setting-gap: 12px;
+  --setting-row-pad: 12px;
+  --setting-card-pad: 17px;
+  --setting-group-gap: 24px;
+}
+
+:root[data-density="compact"] .card-content {
+  padding: 17px;
+}
+
+:root[data-density="compact"] .grid {
+  gap: 18px;
+}
+
+:root[data-density="compact"] .story-reflection,
+:root[data-density="compact"] .next-step {
+  padding: 22px;
+}
+
+/* -------------------------------- text size ------------------------------- */
+
+/* The site is sized in rem, so moving the root size moves everything together -
+   headings, body copy, the navbar and the controls - while every ratio stays as
+   the designer set it. */
+:root {
+  font-size: 100%;
+}
+
+:root[data-text-size="large"] {
+  font-size: 112.5%;
+}
+
+:root[data-text-size="xlarge"] {
+  font-size: 125%;
+}
+
+/* ------------------------------ high contrast ----------------------------- */
+
+/* Stronger borders and darker secondary text, defined per theme so dark mode
+   does not end up with light-on-light borders. These are the two places that
+   most often fail WCAG AA in practice, so both are pushed past it. */
+:root[data-contrast="high"] {
+  --line: #4a4a41;
+  --text-muted: #3f4039;
+  --accent: #103c33;
+  --accent-strong: #08231e;
+}
+
+:root[data-contrast="high"][data-theme="dark"] {
+  --line: #6d7268;
+  --text-muted: #d9dcd0;
+  --accent: #d3ecdf;
+  --accent-strong: #eaf7f0;
+  --surface-muted: #343834;
+}
+
+/* ------------------------------- focus ring ------------------------------- */
+
+/* The default ring is already there; this is what someone who finds it hard to
+   follow across a page asked for - a thicker outline held further off the
+   element, so it never disappears against a busy background. */
+:root[data-focus="enhanced"] :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
+/* --------------------------------- motion --------------------------------- */
+
+/* Applied when the visitor asked for reduced animations OR their operating
+   system did, which is why the provider resolves the two together before
+   writing the attribute. Animations are removed, not slowed: an easing curve on
+   a 1ms transition still consumes frames on some devices. */
+:root[data-motion="reduced"] {
+  scroll-behavior: auto;
+}
+
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* --------------------------------- reading -------------------------------- */
+
+/* Long-form text only. These three are the reason the Reading section exists:
+   measure, leading and size are the three things a reader actually fights with,
+   and they are cheap to change once they are expressed as variables. */
+:root {
+  --reading-scale: 1;
+  --reading-leading: 1.65;
+  --reading-measure: 780px;
+}
+
+:root[data-reading-font-size="small"] {
+  --reading-scale: 0.9;
+}
+
+:root[data-reading-font-size="large"] {
+  --reading-scale: 1.12;
+}
+
+:root[data-reading-font-size="xlarge"] {
+  --reading-scale: 1.26;
+}
+
+:root[data-reading-line-spacing="compact"] {
+  --reading-leading: 1.45;
+}
+
+:root[data-reading-line-spacing="spacious"] {
+  --reading-leading: 1.95;
+}
+
+:root[data-reading-width="narrow"] {
+  --reading-measure: 620px;
+}
+
+:root[data-reading-width="wide"] {
+  --reading-measure: 980px;
+}
+
+.story {
+  max-width: var(--reading-measure);
+}
+
+.story-content {
+  max-width: var(--reading-measure);
+  font-size: calc(1.35rem * var(--reading-scale));
+  line-height: var(--reading-leading);
+}
+
+.story-reflection ol {
+  line-height: var(--reading-leading);
+}
+
+/* Quoted Scripture is a blockquote in every story the editors have written. Two
+   honest treatments: inline, which is how it reads when the blockquote carries
+   no styling of its own, and a separate block, which pulls it out of the
+   paragraph so it can be found again while reading. */
+:root[data-scripture-display="inline"] .story-content blockquote {
+  margin: 1.4em 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-style: normal;
+}
+
+:root[data-scripture-display="block"] .story-content blockquote {
+  margin: 1.6em 0;
+  padding: 1.1em 1.4em;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-style: italic;
+}
+
+:root[data-scripture-display="block"] .story-content blockquote p {
+  margin: 0;
+}

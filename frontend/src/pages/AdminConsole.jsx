@@ -1,31 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Brain, CheckCircle2, ChevronRight, Eye, FolderOpen, GraduationCap, ImagePlus, Library, LogOut, Pencil, Plus, RotateCcw, Search, Tags, Trash2, Users, X, Blocks } from "lucide-react";
+import { CheckCircle2, ChevronRight, Eye, FolderOpen, ImagePlus, Pencil, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
 import RichTextEditor from "../components/RichTextEditor";
 import BrandMark from "../components/BrandMark";
 import SubmissionReview from "../components/SubmissionReview";
 import LearnAdmin from "../components/LearnAdmin";
+import WorkspaceLayout from "../components/WorkspaceLayout";
+import { WORKSPACE_SECTIONS as sections } from "../workspace/sections";
 import { getPracticeAdminOverview } from "../services/practiceApi";
 import { addStoryTags, createAdminItem, createStory, createUploadedAdminResource, deleteAdminItem, getAdminData, getTrash, login, permanentDeleteTrashItem, restoreTrashItem, updateAdminItem, uploadAdminImage, uploadAdminResource, uploadResourceCarousel } from "../services/api";
 import { api } from "../services/api";
+import { useSearchParams } from "react-router-dom";
 
-const sections = [
-  { id: "stories", label: "Stories", icon: BookOpen },
-  { id: "approvals", label: "Approvals", icon: CheckCircle2 },
-  // Resources has its own whole-document studio, like Practice below: the old
-  // flat panel here could only ever create a one-type draft (and its create
-  // form posts the legacy payload), so the console links to the studio rather
-  // than keeping a second, weaker editor for the same table.
-  { id: "resources", label: "Resources", icon: Library, href: "/admin/resources" },
-  { id: "learn", label: "Learn", icon: GraduationCap },
-  { id: "practice", label: "Practice", icon: Brain, href: "/admin/practice" },
-  { id: "tags", label: "Topics", icon: Tags },
-  { id: "users", label: "People", icon: Users },
-  { id: "trash", label: "Trash", icon: Trash2 },
-  // Like Practice above, the builder is a full-screen authoring tool rather than
-  // a CMS list section, so it navigates to its own route instead of switching
-  // the panel below.
-  { id: "experiences", label: "Experience Builder", icon: Blocks, href: "/admin/experience-builder" },
-];
+// The rail itself lives in workspace/sections.js and the frame in
+// WorkspaceLayout, both shared with the studios that own their own routes. They
+// are imported rather than redeclared so an entry cannot exist in the console
+// and be missing from the same rail elsewhere.
 const storyBlank = { title: "", slug: "", author: "", category: "", content: "", image_url: "", published: true, featured: false, tags: [] };
 const resourceBlank = { title: "", description: "", resource_type: "", url: "", downloadable: false, published: true };
 const tagBlank = { name: "", slug: "" };
@@ -34,7 +23,12 @@ const singularLabel = (type) => ({ stories: "story", approvals: "story", resourc
 
 export default function AdminConsole() {
   const [data, setData] = useState(null);
-  const [section, setSection] = useState("stories");
+  // The active panel lives in ?section= so a rail link can open it from any
+  // workspace page, not just from the console itself. Reading it from the URL
+  // rather than from state is also what makes the rail a set of real links:
+  // the console stays mounted while the panel changes underneath it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const section = searchParams.get("section") || "stories";
   const [editor, setEditor] = useState(null);
   const [resourceFile, setResourceFile] = useState(null);
   const [carouselFiles, setCarouselFiles] = useState([]);
@@ -82,22 +76,6 @@ export default function AdminConsole() {
     }
   };
 
-  const loadTrash = async () => {
-    try {
-      setTrash(await getTrash());
-    } catch (err) {
-      showError(err);
-    }
-  };
-
-  const loadExperiences = async () => {
-    try {
-      setExperiences(await api.listExperiences());
-    } catch {
-      // Silently fail - experiences list is not critical
-    }
-  };
-
   // Boot the workspace once after mount: pull the admin lists in the
   // background. This is an intentional one-time data load, not a React-state
   // sync, so the set-state-in-effect guideline does not apply here.
@@ -127,6 +105,37 @@ export default function AdminConsole() {
     setCarouselFiles([]);
     setError("");
   };
+
+  // Changing panel used to be a button click, so it reset the query and closed
+  // any open editor in the same handler. The rail is links now - the same links
+  // the other workspace pages use - so the console hands the frame a callback
+  // to run on the way out instead.
+  function leavePanel() {
+    setQuery("");
+    close();
+    setSearchParams({});
+  }
+
+  // Trash is the one panel with its own request, fetched when the panel opens
+  // rather than on click - a deep link from another workspace page has to land
+  // exactly like a click inside the console does. The write lands after the
+  // await, not in the effect body, so this is a request the effect subscribes
+  // to rather than a state update it forces.
+  useEffect(() => {
+    if (section !== "trash") return undefined;
+    let stale = false;
+    (async () => {
+      try {
+        const next = await getTrash();
+        if (!stale) setTrash(next);
+      } catch (err) {
+        if (!stale) showError(err);
+      }
+    })();
+    return () => {
+      stale = true;
+    };
+  }, [section]);
 
   function open(type, item = null) {
     setError("");
@@ -337,73 +346,23 @@ export default function AdminConsole() {
   const pendingCount = section !== "trash" ? data.stories.filter((story) => !story.published).length : 0;
 
   return (
-    <main className="admin-shell">
-      <aside className="cms-sidebar">
-        <a className="cms-brand" href="/">
-          <BrandMark />
-          <span>The Small Voice</span>
-        </a>
-        <span className="cms-nav-label">Workspace</span>
-        <nav className="cms-nav">
-          {sections.map(({ id, label, icon: TabIcon, href }) => {
-            const count =
-              id === "approvals" ? pendingCount
-                : id === "trash"
-                  ? trash
-                    ? trash.stories.length + trash.resources.length + trash.tags.length + trash.users.length
-                    : 0
-                  : id === "experiences"
-                    ? experiences?.length || 0
-                    : id === "learn"
-                      ? learnAttention
-                      : id === "practice"
-                        ? practiceAttention
-                        : data[id]?.length || 0;
-
-            const inner = (
-              <>
-                <TabIcon size={18} />
-                <span>{label}</span>
-                {count === null || count === undefined ? null : <b>{count}</b>}
-              </>
-            );
-
-            // Entries that own a route are real links; the rest switch panels.
-            if (href) {
-              return (
-                <a key={id} className={section === id ? "active" : ""} href={href}>
-                  {inner}
-                </a>
-              );
-            }
-
-            return (
-              <button
-                key={id}
-                className={section === id ? "active" : ""}
-                onClick={() => {
-                  setSection(id);
-                  setQuery("");
-                  close();
-                  if (id === "trash") loadTrash();
-                  if (id === "experiences") loadExperiences();
-                }}
-              >
-                {inner}
-              </button>
-            );
-          })}
-        </nav>
-        <div className="cms-sidebar-footer">
-          <a href="/" target="_blank" rel="noreferrer">
-            View website <ChevronRight size={15} />
-          </a>
-          <button onClick={() => { localStorage.removeItem("access_token"); setData(null); }}>
-            <LogOut size={16} />Sign out
-          </button>
-        </div>
-      </aside>
-      <section className="cms-workspace">
+    <WorkspaceLayout
+      active={section}
+      onNavigate={leavePanel}
+      counts={{
+        stories: data.stories.length,
+        approvals: pendingCount,
+        resources: data.resources.length,
+        tags: data.tags.length,
+        users: data.users.length,
+        trash: trash
+          ? trash.stories.length + trash.resources.length + trash.tags.length + trash.users.length
+          : 0,
+        experiences: experiences?.length || 0,
+        learn: learnAttention,
+        practice: practiceAttention,
+      }}
+    >
         <header className="cms-topbar">
           <div>
             <p className="eyebrow">Content management</p>
@@ -762,7 +721,6 @@ export default function AdminConsole() {
           )}
           </>
         )}
-      </section>
-    </main>
+    </WorkspaceLayout>
   );
 }

@@ -9,23 +9,36 @@
   --eb-panel-w: 268px;
   --eb-bar-h: 52px;
   display: flex;
-  min-height: 100vh;
+  /* The builder now lives inside the workspace frame, which owns the viewport
+     height - so it fills the box it is given instead of claiming one of its own. */
+  min-height: 0;
   flex-direction: column;
   background: var(--canvas);
   color: var(--text);
-  font-family: "DM Mono", ui-monospace, monospace;
-  font-size: 0.78rem;
+  /* Colour and type are inherited from .admin-shell on purpose. This file used
+     to pull the public reader's tokens and a monospace face, which is why
+     opening the builder felt like leaving the workspace: the cream canvas,
+     the green accent and the mono labels were all a different palette. */
+  font-family: inherit;
+  font-size: 0.82rem;
 }
 
 /* ---------------- top bar ---------------- */
 
+/* The action cluster sizes to its content and the title side absorbs what is
+   left. Two equal 1fr columns used to split the bar down the middle, which
+   handed the actions less than half the width - so the moment the rail took its
+   248px they wrapped onto a second row. */
 .eb-topbar {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, auto);
   align-items: center;
   gap: 16px;
   min-height: var(--eb-bar-h);
-  padding: 0 14px;
+  /* No side padding of its own: the workspace gutter already sits outside this
+     bar, so its controls line up with the heading on every other page instead
+     of starting 14px further in. */
+  padding: 0;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
@@ -48,8 +61,14 @@
   justify-content: center;
 }
 
+/* Flexible rather than fixed: the rail now takes 248px off the bar's width on
+   every screen, so a hard 210px here is what pushed the actions onto a second
+   row. It shrinks to its minimum before anything has to wrap, and grows back to
+   220px when there is room. */
 .eb-title-input {
-  width: 210px;
+  flex: 1 1 auto;
+  min-width: 96px;
+  max-width: 220px;
   padding: 5px 8px;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -94,7 +113,7 @@
   border-radius: 5px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -141,12 +160,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 7px 11px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--surface);
   color: var(--text);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   white-space: nowrap;
 }
 
@@ -186,8 +205,12 @@
      between those states, so a fluid width made the bar wrap and unwrap, which
      shoved the whole canvas down ~28px and made a saved design appear to move
      on reload. The label can spill past this box on one line without ever
-     changing the layout. */
-  width: 160px;
+     changing the layout.
+
+     It is sized to "Unsaved changes", the longest label. Any wider and the bar
+     wraps onto a second row on a 1440px screen once the rail has taken its
+     248px, which is what it did at 160px. */
+  width: 104px;
   font-size: 0.66rem;
   white-space: nowrap;
 }
@@ -288,12 +311,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 8px;
+  padding: 8px 9px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: var(--surface);
   color: var(--text);
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   text-align: left;
   cursor: grab;
 }
@@ -818,12 +841,12 @@
 .eb-input {
   width: 100%;
   min-width: 0;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--canvas);
+  border-radius: 7px;
+  background: var(--surface);
   color: var(--text);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 
 .eb-input:focus { border-color: var(--accent); outline: none; }
@@ -1003,7 +1026,9 @@
 
 .eb-boot {
   display: flex;
-  min-height: 100vh;
+  /* The frame supplies the viewport height now, so the boot and error states
+     fill the workspace rather than adding a second one on top of it. */
+  min-height: 0;
   align-items: center;
   justify-content: center;
   gap: 9px;
@@ -1021,8 +1046,14 @@
 }
 
 @media (max-width: 900px) {
-  .eb-topbar { grid-template-columns: 1fr; gap: 8px; padding: 8px 12px; }
+  .eb-topbar { grid-template-columns: 1fr; gap: 8px; padding: 8px 0; }
   .eb-topbar__center { justify-content: flex-start; }
+  /* One scrollable row of actions rather than four stacked ones: on a phone the
+     controls cannot all fit, and a bar that eats a fifth of the viewport is
+     worse than one you swipe. It scrolls from the left - right-aligning it
+     pushes undo and zoom off the start of the scroll, where they cannot be
+     reached. */
+  .eb-topbar__right { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
   .eb-workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto; }
   .eb-panel { max-height: 34vh; }
   .eb-panel--left { border-right: 0; border-bottom: 1px solid var(--line); }

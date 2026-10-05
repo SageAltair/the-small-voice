@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import {
-  AlertTriangle, ArrowLeft, Award, BarChart3, CheckCircle2, Copy, Eye, Gauge, Layers,
+  AlertTriangle, Award, BarChart3, CheckCircle2, Copy, Eye, Gauge, Layers,
   ListChecks, Plus, RefreshCw, Save, Settings as SettingsIcon, Target, Trash2, X,
 } from "lucide-react";
 import PracticeQuestion from "../components/PracticeQuestion";
+import WorkspaceLayout from "../components/WorkspaceLayout";
 import {
   createAdminChallenge, createAdminConcept, createAdminQuestion, createAdminSet,
   deleteAdminChallenge, deleteAdminConcept, deleteAdminQuestion, deleteAdminSet,
@@ -2278,63 +2278,65 @@ function insightsPanel() {
     );
   }
 // ---- shell ------------------------------------------------------------
+  /* The studio renders inside the shared workspace frame: the rail, the gutter
+     and the palette come from there, so this page is the same page as the rest
+     of the workspace with Practice's tabs in it - which is what it used to
+     stop being the moment you clicked into it. */
   return (
-    <div className="learn-admin learn-admin--page">
-      <header className="learn-editor-head">
-        <div className="learn-editor-title">
-          <h1>{p.adminTitle}</h1>
-          <p className="learn-editor-meta">
-            <Link to="/admin">
-              <ArrowLeft size={13} aria-hidden="true" /> Back to the workspace
-            </Link>
-          </p>
-        </div>
-        <div className="learn-editor-actions">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              if (tab === "overview") loadOverview();
-              else if (tab === "insights") loadInsights();
-              else if (tab === "sets") loadSets();
-              else if (tab === "challenges") loadChallenges();
-              else if (tab === "concepts") loadConcepts();
-              else if (tab === "questions") loadQuestions();
-              setNotice("");
-            }}
-          >
-            <RefreshCw size={14} aria-hidden="true" /> Refresh
-          </button>
-        </div>
-      </header>
+    <WorkspaceLayout active="practice">
+      <div className="learn-admin learn-admin--page">
+        <header className="cms-topbar">
+          <div>
+            <p className="eyebrow">Content management</p>
+            <h1>{p.adminTitle}</h1>
+          </div>
+          <div className="learn-editor-actions">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                if (tab === "overview") loadOverview();
+                else if (tab === "insights") loadInsights();
+                else if (tab === "sets") loadSets();
+                else if (tab === "challenges") loadChallenges();
+                else if (tab === "concepts") loadConcepts();
+                else if (tab === "questions") loadQuestions();
+                setNotice("");
+              }}
+            >
+              <RefreshCw size={14} aria-hidden="true" /> Refresh
+            </button>
+          </div>
+        </header>
 
-      <nav className="learn-tabs" aria-label="Practice studio sections">
-        {TABS.map(({ id, label, icon: TabIcon }) => (
-          <button
-            key={id}
-            type="button"
-            className={tab === id ? "active" : ""}
-            aria-current={tab === id ? "page" : undefined}
-            onClick={() => {
-              setTab(id);
-              setNotice("");
-            }}
-          >
-            <TabIcon size={14} aria-hidden="true" /> {label}
-          </button>
-        ))}
-      </nav>
+        <nav className="learn-tabs" aria-label="Practice studio sections">
+          {TABS.map(({ id, label, icon: TabIcon }) => (
+            <button
+              key={id}
+              type="button"
+              className={tab === id ? "active" : ""}
+              aria-current={tab === id ? "page" : undefined}
+              onClick={() => {
+                setTab(id);
+                setNotice("");
+              }}
+            >
+              <TabIcon size={14} aria-hidden="true" /> {label}
+            </button>
+          ))}
+        </nav>
 
-      {error ? <div className="cms-alert">{error}</div> : null}
-      {notice ? <p className="learn-dirty">{notice}</p> : null}
+        {error ? <div className="cms-alert">{error}</div> : null}
+        {notice ? <p className="learn-dirty">{notice}</p> : null}
 
-      {tab === "overview" ? overviewPanel() : null}
-      {tab === "concepts" ? conceptsPanel() : null}
-      {tab === "questions" ? questionsPanel() : null}
-      {tab === "sets" ? setsPanel() : null}
-      {tab === "challenges" ? challengesPanel() : null}
-      {tab === "settings" ? settingsPanel() : null}
-      {tab === "insights" ? insightsPanel() : null}
-    </div>
+        {tab === "overview" ? overviewPanel() : null}
+        {tab === "concepts" ? conceptsPanel() : null}
+        {tab === "questions" ? questionsPanel() : null}
+        {tab === "sets" ? setsPanel() : null}
+        {tab === "challenges" ? challengesPanel() : null}
+        {tab === "settings" ? settingsPanel() : null}
+        {tab === "insights" ? insightsPanel() : null}
+      </div>
+    </WorkspaceLayout>
   );
 }

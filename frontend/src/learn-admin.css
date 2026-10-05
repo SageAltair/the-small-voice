@@ -10,24 +10,15 @@
   gap: 20px;
 }
 
-/* The Practice studio is its own full-screen route rather than a section of
-   the CMS workspace, so it carries its own gutter and measure - and it has to
-   restate what .admin-shell would otherwise supply: the admin background, its
-   text colour and its font. Without these it inherits the public site's mono
-   body font and canvas, which is what made it look like a different site. */
+/* The Practice studio renders inside the shared workspace frame rather than
+   beside it, so the frame owns the background, the text colour, the font and
+   the gutter. Restating them here is exactly what used to make the studio look
+   like a separate site, so all that is left is the panel's own rhythm - the
+   vertical gap between the heading, the tabs and the panel below. */
 .learn-admin--page {
-  max-width: 1180px;
-  margin: 0 auto;
-  min-height: calc(100vh - 70px);
-  padding: clamp(20px, 3vw, 34px);
-  background: #f7f9fc;
-  color: #172033;
-  font-family: Poppins, system-ui, sans-serif;
-}
-
-:root[data-theme="dark"] .learn-admin--page {
-  background: #080d18;
-  color: #e5edf9;
+  display: grid;
+  gap: 20px;
+  min-width: 0;
 }
 
 /* ------------------------------- tabs ----------------------------------- */

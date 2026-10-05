@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarClock,
   CheckCircle2,
   Copy,
   EyeOff,
-  LogOut,
   Pencil,
   Plus,
   RefreshCw,
@@ -27,7 +25,7 @@ import {
  * act.
  */
 
-import BrandMark from "../components/BrandMark";
+import WorkspaceLayout from "../components/WorkspaceLayout";
 import { useLanguage } from "../i18n/LanguageContext";
 import { fill } from "../i18n/resourceCopy";
 import ResourceDashboard from "../resources/admin/ResourceDashboard";
@@ -287,35 +285,37 @@ export default function AdminResources() {
     });
   }
 
-  /* --- the editor takes over the whole page, like the other studios ----- */
+  /* --- the editor takes over the page, like the other studios --------------- */
   if (editing) {
     return (
-      <main className="learn-admin--page res-admin">
-        <header className="res-admin-topbar">
-          <button
-            type="button"
-            className="res-btn"
-            onClick={() => setEditing(null)}
-          >
-            <ArrowLeft size={15} aria-hidden="true" />
-            {copy.backToLibrary}
-          </button>
-        </header>
+      <WorkspaceLayout active="resources">
+        <div className="learn-admin--page res-admin">
+          <header className="res-admin-topbar">
+            <button
+              type="button"
+              className="res-btn"
+              onClick={() => setEditing(null)}
+            >
+              <ArrowLeft size={15} aria-hidden="true" />
+              {copy.backToLibrary}
+            </button>
+          </header>
 
-        <ResourceEditor
-          key={editing === "new" ? "new" : editing}
-          resourceId={editing === "new" ? null : editing}
-          onCancel={() => setEditing(null)}
-          onSaved={(saved) => {
-            setNotice(editing === "new" ? copy.created : copy.saved);
-            refreshOverview();
-            refreshList();
-            // A brand-new resource now has an id, so switch from create mode
-            // to editing it rather than leaving the editor in a stale state.
-            if (editing === "new" && saved?.id) setEditing(saved.id);
-          }}
-        />
-      </main>
+          <ResourceEditor
+            key={editing === "new" ? "new" : editing}
+            resourceId={editing === "new" ? null : editing}
+            onCancel={() => setEditing(null)}
+            onSaved={(saved) => {
+              setNotice(editing === "new" ? copy.created : copy.saved);
+              refreshOverview();
+              refreshList();
+              // A brand-new resource now has an id, so switch from create mode
+              // to editing it rather than leaving the editor in a stale state.
+              if (editing === "new" && saved?.id) setEditing(saved.id);
+            }}
+          />
+        </div>
+      </WorkspaceLayout>
     );
   }
 
@@ -324,32 +324,19 @@ export default function AdminResources() {
   const allSelected = items.length > 0 && items.every((item) => selected.has(item.id));
 
   return (
-    <main className="learn-admin--page res-admin">
-      <header className="res-admin-topbar">
-        <a className="cms-brand" href="/">
-          <BrandMark />
-          <span>The Small Voice</span>
-        </a>
+    <WorkspaceLayout active="resources">
+      <div className="learn-admin--page res-admin">
+        /* The heading only: each tab already carries its own "New resource" button
+           directly beside the content it creates, so a second one up here would
+           put the same action on screen twice. */
+        <header className="cms-topbar">
+          <div>
+            <p className="eyebrow">Content management</p>
+            <h1>{copy.title}</h1>
+          </div>
+        </header>
 
-        <div className="res-admin-topbar-actions">
-          <Link to="/admin" className="res-btn res-btn--ghost">
-            Back to workspace
-          </Link>
-          <button
-            type="button"
-            className="res-btn res-btn--ghost"
-            onClick={() => {
-              localStorage.removeItem("access_token");
-              window.location.assign("/");
-            }}
-          >
-            <LogOut size={15} aria-hidden="true" />
-            {copy.signOut}
-          </button>
-        </div>
-      </header>
-
-      <div className="res-admin-tabs">
+        <div className="res-admin-tabs">
         {[
           ["dashboard", copy.tabDashboard],
           ["library", copy.tabLibrary],
@@ -661,7 +648,8 @@ export default function AdminResources() {
           onConfirm={saveSchedule}
         />
       )}
-    </main>
+      </div>
+    </WorkspaceLayout>
   );
 }
 

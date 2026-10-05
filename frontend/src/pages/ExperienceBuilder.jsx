@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertCircle, ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Check, ChevronLeft, Copy, Eye,
+  AlertCircle, ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Check, Copy, Eye,
   Grid3x3, HelpCircle, Image as ImageIcon, Loader2, Lock, Maximize2, Monitor, Plus,
   Redo2, RotateCw, Save, Send, Smartphone, Tablet, Trash2, Undo2, Unlock, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../services/api";
 import ExperienceRenderer from "../components/experience/ExperienceRenderer";
+import WorkspaceLayout from "../components/WorkspaceLayout";
 import { SHAPE_OPTIONS, ICON_OPTIONS } from "../experience/elementCatalog";
 import MediaDialog from "../components/experience/MediaDialog";
 import HelpPanel from "../components/experience/HelpPanel";
@@ -2015,16 +2016,30 @@ export default function ExperienceBuilder() {
 
   /* ---------------- render ---------------- */
 
+  /* The builder is a full-bleed tool, so it takes the workspace frame's flush
+     variant: the rail and the palette are the shared ones, but the canvas
+     claims the whole remaining box instead of flowing with the page.
+
+     The boot and error states are wrapped in the same frame on purpose. They
+     used to render bare, so the sidebar vanished for as long as loading took
+     and came back afterwards - the frame appearing late read as the app
+     changing rather than finishing. */
+  const frame = (children) => (
+    <WorkspaceLayout active="experiences" flush>
+      {children}
+    </WorkspaceLayout>
+  );
+
   if (loading) {
-    return (
+    return frame(
       <div className="eb-boot">
         <Loader2 size={20} className="eb-spin" /> Loading your design…
-      </div>
+      </div>,
     );
   }
 
   if (bootError) {
-    return (
+    return frame(
       <div className="eb-boot eb-boot--error">
         <AlertCircle size={18} />
         <p>{bootError}</p>
@@ -2036,7 +2051,7 @@ export default function ExperienceBuilder() {
             Back to list
           </button>
         </div>
-      </div>
+      </div>,
     );
   }
 
@@ -2045,18 +2060,13 @@ export default function ExperienceBuilder() {
   const settings = page.pageSettings;
   const isPublished = doc.status === "published";
 
-  return (
+  return frame(
     <div className="eb-shell">
       <header className="eb-topbar">
         <div className="eb-topbar__left">
-          <button
-            type="button"
-            className="eb-icon-btn"
-            onClick={() => (experienceId ? setParams(new URLSearchParams()) : navigate("/admin"))}
-            aria-label={experienceId ? "Back to list" : "Back to admin console"}
-          >
-            <ChevronLeft size={16} />
-          </button>
+          {/* No back button: the rail is right there, and a second way out of
+              the page is one more thing that differed from every other
+              workspace route. */}
           <input
             className="eb-title-input"
             value={doc.title}
@@ -2064,6 +2074,11 @@ export default function ExperienceBuilder() {
             aria-label="Experience title"
           />
           <span className={`eb-badge eb-badge--${doc.status}`}>{doc.status}</span>
+          {/* The save state describes this document, so it sits with the
+              document's name and status. It also keeps the action cluster from
+              wrapping: with the rail taking 248px, the bar only has room for
+              one row of controls. */}
+          <SaveIndicator status={status} error={saveError} onRetry={manualSave} />
         </div>
 
         <div className="eb-topbar__center">
@@ -2101,8 +2116,6 @@ export default function ExperienceBuilder() {
               <Maximize2 size={15} />
             </button>
           </div>
-
-          <SaveIndicator status={status} error={saveError} onRetry={manualSave} />
 
           <button type="button" className="eb-btn eb-btn--ghost" onClick={manualSave} disabled={!experienceId}>
             <Save size={14} /> Save
@@ -2261,6 +2274,6 @@ export default function ExperienceBuilder() {
           onClose={closeCreate}
         />
       ) : null}
-    </div>
+    </div>,
   );
 }

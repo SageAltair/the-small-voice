@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Compass, Loader2 } from "lucide-react";
+import { ArrowRight, Compass } from "lucide-react";
 import { api } from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -35,18 +35,33 @@ export default function Journeys() {
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    setError("");
-    try {
-      setItems(await api.listPublicExperiences({ experience_type: filter, language }));
-    } catch (err) {
-      setError(err.message || "Could not load journeys.");
-      setItems([]);
-    }
-  }, [filter, language]);
+  const load = useCallback(
+    async (isCancelled = () => false) => {
+      setError("");
+      try {
+        const result = await api.listPublicExperiences({ experience_type: filter, language });
+        if (isCancelled()) return;
+        setItems(result);
+      } catch (err) {
+        if (isCancelled()) return;
+        setError(err.message || "Could not load journeys.");
+        setItems([]);
+      }
+    },
+    [filter, language],
+  );
 
   useEffect(() => {
-    load();
+    // A microtask defers the fetch without making the effect body call setState
+    // synchronously; the cancel flag stops a stale response overwriting a newer one.
+    let cancelled = false;
+    const id = queueMicrotask(() => {
+      load(() => cancelled);
+    });
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [load]);
 
   const list = useMemo(() => (items || []).filter((item) => item.status === "published"), [items]);
@@ -86,16 +101,16 @@ export default function Journeys() {
             <p style={{ color: "var(--text-muted)" }}>Nothing published here yet. Check back soon.</p>
           </div>
         ) : (
-          <div className="grid">
+          <div className="grid journeys-grid">
             {list.map((item, index) => (
-              <article className="card" key={item.id}>
+              <article className="card journey-card" key={item.id}>
                 <Link to={`/journeys/${item.slug}`} className="card-link">
                   <img
-                    className="card-image"
+                    className="card-image journey-card-image"
                     src={item.cover_url || item.image_url || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]}
                     alt=""
                   />
-                  <div className="card-body">
+                  <div className="card-content journey-card-body">
                     <span className="card-category">{TYPE_LABELS[item.experience_type] || item.experience_type}</span>
                     <h3 className="card-title">{item.title}</h3>
                     {item.description ? <p className="card-description">{item.description}</p> : null}

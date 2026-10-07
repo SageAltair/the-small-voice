@@ -121,7 +121,6 @@ export default function Home() {
           <div>
             <p className="eyebrow">{t.explore}</p>
             <h2>{t.reels}</h2>
-            <p>{t.reelsDescription}</p>
           </div>
           <Link
             to="/resources/reel"
@@ -140,7 +139,7 @@ export default function Home() {
             ))}
           </div>
         ) : (
-          <p className="home-discover-empty">{t.reelsDescription}</p>
+          <p className="home-discover-empty">{t.reelsSoon}</p>
         )}
       </div>
 

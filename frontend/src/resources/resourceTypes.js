@@ -43,8 +43,9 @@ const REGISTRY = {
     // Reels play inline on the card because stopping to press play on a
     // three-second clip is a worse experience than letting it loop quietly.
     inlinePlay: true,
-    // Reels are vertical by nature, so the rail is the one place the layout
-    // goes narrow and tall rather than a row of equal cards.
+    // Reels are vertical by nature, so the library tile goes narrow and tall
+    // rather than a row of equal cards. The homepage teaser passes `compact`
+    // and sizes itself to a story card instead.
     rail: "portrait",
   },
   video: {

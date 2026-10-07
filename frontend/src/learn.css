@@ -105,6 +105,113 @@
 }
 
 /* ------------------------------ progress -------------------------------- */
+/* Learn and Journey cards share the site's `.card` bones so they read as one
+   collection with Stories and Resources. These rules supply the intentional
+   hierarchy the generic card lacks: a consistent media ratio, an eyebrow that
+   always names the topic/type, hover feedback on the title, and meta that
+   wraps instead of collapsing on narrow screens. */
+
+.learn-grid,
+.journeys-grid {
+  margin-top: 6px;
+}
+
+.learn-card,
+.journey-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+}
+
+/* Journey covers historically shipped without a size rule, so two cards in a
+   row could stand at different heights. One shared editorial ratio keeps the
+   shelf even while still showing the whole image. */
+.learn-card .card-link,
+.journey-card .card-link {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.learn-card-image,
+.journey-card-image {
+  aspect-ratio: 16 / 9;
+  height: auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.learn-card-body,
+.journey-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0;
+}
+
+.learn-card .card-category,
+.journey-card .card-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-family: "DM Mono", ui-monospace, monospace;
+  font-size: .66rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.learn-card .card-title,
+.journey-card .card-title {
+  font-size: 1.42rem;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.learn-card .card-link:hover .card-title,
+.journey-card .card-link:hover .card-title {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+}
+
+.learn-card .card-description,
+.journey-card .card-description {
+  display: -webkit-box;
+  margin: 0 0 10px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.learn-card .card-meta,
+.journey-card .card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: .74rem;
+}
+
+@media (max-width: 560px) {
+  .learn-card,
+  .journey-card {
+    border-radius: 12px;
+  }
+
+  .learn-card .card-title,
+  .journey-card .card-title {
+    font-size: 1.25rem;
+  }
+}
+
+/* ------------------------------ progress -------------------------------- */
 
 .learn-progress {
   width: 100%;

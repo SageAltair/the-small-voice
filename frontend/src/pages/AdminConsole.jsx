@@ -7,7 +7,7 @@ import LearnAdmin from "../components/LearnAdmin";
 import WorkspaceLayout from "../components/WorkspaceLayout";
 import { WORKSPACE_SECTIONS as sections } from "../workspace/sections";
 import { getPracticeAdminOverview } from "../services/practiceApi";
-import { addStoryTags, createAdminItem, createStory, createUploadedAdminResource, deleteAdminItem, getAdminData, getTrash, login, permanentDeleteTrashItem, restoreTrashItem, updateAdminItem, uploadAdminImage, uploadAdminResource, uploadResourceCarousel } from "../services/api";
+import { addStoryTags, createAdminItem, createStory, createUploadedAdminResource, deleteAdminItem, getAdminData, getTrash, login, permanentDeleteTrashItem, publishAdminResource, restoreTrashItem, updateAdminItem, uploadAdminImage, uploadAdminResource, uploadResourceCarousel } from "../services/api";
 import { api } from "../services/api";
 import { useSearchParams } from "react-router-dom";
 
@@ -275,7 +275,17 @@ export default function AdminConsole() {
     setBusy(true);
     setError("");
     try {
-      await updateAdminItem(item._type || "stories", item.id, { published: true });
+      const type = item._type || "stories";
+      // Resources are published through their own endpoint. The studio owns
+      // PUT /admin/resources/{id} as a whole-document save: it requires the
+      // full payload (a bare { published: true } is rejected with a 422) and
+      // it deliberately never changes status, so the story-shaped payload
+      // would fail *and* could not publish even if it were accepted.
+      if (type === "resources") {
+        await publishAdminResource(item.id);
+      } else {
+        await updateAdminItem(type, item.id, { published: true });
+      }
       await refresh();
       setNotice(`"${item.title}" is now published.`);
     } catch (err) {

@@ -27,7 +27,7 @@ import {
   getResourceTypes,
   listResources,
 } from "../services/api";
-import ResourceCard from "../resources/ResourceCard";
+import ResourceFeedItem from "../resources/ResourceFeedItem";
 import { RESOURCE_TYPES } from "../resources/resourceTypes";
 import {
   ResourceEmpty,
@@ -270,11 +270,11 @@ export default function ResourceBrowse() {
             })}
           </p>
 
-          {/* The same three-up grid Stories uses, so the two shelves line up
-              column for column. */}
-          <div className="grid" style={{ marginTop: 18 }}>
+          {/* A standalone editorial feed: each resource is an independent media
+              post with invisible boundaries, not a boxed card. */}
+          <div className="feed" style={{ marginTop: 18 }}>
             {items.map((item) => (
-              <ResourceCard key={item.id} resource={item} />
+              <ResourceFeedItem key={item.id} resource={item} />
             ))}
           </div>
 

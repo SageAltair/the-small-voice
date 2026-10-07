@@ -575,6 +575,12 @@ def _validate_before_publish(db: Session, resource: Resource) -> list[dict]:
             "slides",
             "A carousel needs at least one slide",
         )
+
+    # Collected rather than raised: the editor renders this as a checklist, so
+    # the caller can show every outstanding item at once.
+    return issues
+
+
 @router.post("/", response_model=ResourceResponse, status_code=201)
 def create_resource(
     payload: ResourceUpsert,

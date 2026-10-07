@@ -46,7 +46,7 @@ const translations = {
     // The homepage discovery box: reels on one side, topics on the other, and
     // one boxed arrow that opens the full list.
     reels: "Reels",
-    reelsDescription: "Short videos worth sitting with.",
+    reelsSoon: "Reels coming soon",
     allTopics: "All topics",
     community: "Community",
     joinCommunity: "Join the Community",
@@ -165,7 +165,7 @@ const translations = {
     topicsSoon: "Mada zitapatikana hivi karibuni",
     journeysLabel: "Safari",
     reels: "Vipindi",
-    reelsDescription: "Video fupi zenye kuzingatia.",
+    reelsSoon: "Vipindi vitakuja hivi karibuni",
     allTopics: "Mada zote",
     community: "Jumuiya",
     joinCommunity: "Jiunge na Jumuiya",

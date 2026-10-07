@@ -157,19 +157,19 @@ export default function Learn() {
             </p>
           </div>
         ) : (
-          <div className="grid">
+          <div className="grid learn-grid">
             {paths.map((item, index) => (
-              <article className="card" key={item.id}>
+              <article className="card learn-card" key={item.id}>
                 <Link to={`/learn/paths/${item.slug}`} className="card-link">
                   <img
-                    className="card-image"
+                    className="card-image learn-card-image"
                     src={
                       getImageUrl(item.cover_url) ||
                       FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]
                     }
                     alt=""
                   />
-                  <div className="card-body">
+                  <div className="card-content learn-card-body">
                     <span className="card-category">
                       {item.category?.name || "Learning path"}
                     </span>

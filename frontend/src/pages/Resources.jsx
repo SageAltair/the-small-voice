@@ -28,7 +28,7 @@ import {
   getResourceTypes,
   listResources,
 } from "../services/api";
-import ResourceCard from "../resources/ResourceCard";
+import ResourceFeedItem from "../resources/ResourceFeedItem";
 import { RESOURCE_TYPES, resourceMeta } from "../resources/resourceTypes";
 import {
   ResourceEmpty,
@@ -71,9 +71,9 @@ function Section({ section }) {
         </Link>
       </div>
 
-      <div className="grid">
+      <div className="feed">
         {section.items.map((item) => (
-          <ResourceCard key={item.id} resource={item} compact />
+          <ResourceFeedItem key={item.id} resource={item} />
         ))}
       </div>
     </section>
@@ -280,9 +280,11 @@ export default function Resources() {
 
           {!listLoading && !listError && items.length > 0 && (
             <>
-              <div className="grid" style={{ marginTop: 18 }}>
+              {/* Filtered results read as the same editorial feed as browse:
+                  one independent media post after another, no card boxes. */}
+              <div className="feed" style={{ marginTop: 18 }}>
                 {items.map((item) => (
-                  <ResourceCard key={item.id} resource={item} />
+                  <ResourceFeedItem key={item.id} resource={item} />
                 ))}
               </div>
 
@@ -354,9 +356,9 @@ export default function Resources() {
                   </Link>
                 </div>
 
-                <div className="grid">
+                <div className="feed">
                   {shelf.promoted.slice(0, 3).map((item) => (
-                    <ResourceCard key={item.id} resource={item} />
+                    <ResourceFeedItem key={item.id} resource={item} />
                   ))}
                 </div>
               </section>

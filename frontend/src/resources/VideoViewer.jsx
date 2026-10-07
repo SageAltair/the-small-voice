@@ -43,6 +43,13 @@ export default function VideoViewer({ resource }) {
   const poster = getImageUrl(resource?.cover_url || null);
   const isPortrait = resource?.type === "reel";
 
+  // Preserve the uploaded ratio: server-measured dimensions win, 16:9 (or 9:16
+  // for reels) is only the fallback when nothing was ever probed.
+  const naturalRatio =
+    resource?.media_width && resource?.media_height
+      ? `${resource.media_width} / ${resource.media_height}`
+      : null;
+
   /* Autoplay is opt-in and the browser still has the last word: a rejected
      play() is reported as a failed clip, which is the same state the reader
      already sees when a file will not load. */
@@ -98,6 +105,7 @@ export default function VideoViewer({ resource }) {
       <div
         ref={frameRef}
         className={`res-video-frame${isPortrait ? " res-video-frame--portrait" : ""}`}
+        style={naturalRatio ? { aspectRatio: naturalRatio } : undefined}
       >
         <video
           ref={videoRef}

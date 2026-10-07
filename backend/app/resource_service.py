@@ -407,6 +407,8 @@ def serialize_resource(
             primary_media.mime_type if primary_media else None,
             resource.mime_type,
         ),
+        "media_width": primary_media.width if primary_media else None,
+        "media_height": primary_media.height if primary_media else None,
         "carousel_urls": list(resource.carousel_urls or []),
 
         "status": resource.status,

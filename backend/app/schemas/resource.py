@@ -374,6 +374,8 @@ class ResourceResponse(BaseModel):
     page_count: int | None = None
     file_size: int | None = None
     mime_type: str | None = None
+    media_width: int | None = None
+    media_height: int | None = None
     carousel_urls: list[str] = Field(default_factory=list)
 
     # Publishing and permissions

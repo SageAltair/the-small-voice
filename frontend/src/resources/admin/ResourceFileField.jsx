@@ -17,6 +17,12 @@ import { AlertCircle, FileUp, RotateCcw, Upload, X } from "lucide-react";
 import { useLanguage } from "../../i18n/LanguageContext";
 import { fill } from "../../i18n/resourceCopy";
 import { uploadResourceFile } from "../../services/api";
+import {
+  checkMediaForType,
+  formatAspectLabel,
+  formatDimensions,
+  MEDIA_RULES,
+} from "../resourceMediaRules";
 import { formatFileSize } from "../resourceUtils";
 
 const ACCEPT = [
@@ -41,6 +47,8 @@ export default function ResourceFileField({
   onFacts,
   accept = ACCEPT,
   hint,
+  resourceType = null,
+  showRatio = false,
 }) {
   const { t } = useLanguage();
   const copy = t.resources.admin;
@@ -49,6 +57,47 @@ export default function ResourceFileField({
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(null);
+  const [ratioInfo, setRatioInfo] = useState(null);
+
+  /** File family of a picked file, before the server classifies it. */
+  function localKind(file) {
+    const mime = String(file?.type || "");
+    if (mime.startsWith("video/")) return "video";
+    if (mime.startsWith("audio/")) return "audio";
+    if (mime.startsWith("image/")) return "image";
+    if (mime === "application/pdf") return "pdf";
+    return "document";
+  }
+
+  /** Measure pixels in the browser so validation happens before upload. */
+  function probeLocalDimensions(file) {
+    return new Promise((resolve) => {
+      const kind = localKind(file);
+      const url = URL.createObjectURL(file);
+      const done = (width, height) => {
+        URL.revokeObjectURL(url);
+        resolve({ width, height });
+      };
+      if (kind === "image") {
+        const image = new Image();
+        image.onload = () => done(image.naturalWidth, image.naturalHeight);
+        image.onerror = () => done(null, null);
+        image.src = url;
+        return;
+      }
+      if (kind === "video") {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.muted = true;
+        video.onloadedmetadata = () => done(video.videoWidth, video.videoHeight);
+        video.onerror = () => done(null, null);
+        video.src = url;
+        return;
+      }
+      URL.revokeObjectURL(url);
+      resolve({ width: null, height: null });
+    });
+  }
 
   /* Validate before uploading rather than after: a 400 response arrives only
      once the whole file has crossed the network, which for a large video is a
@@ -66,6 +115,31 @@ export default function ResourceFileField({
     if (problem) {
       setError(problem);
       return;
+    }
+
+    // Aspect-ratio compatibility is checked during upload, not after
+    // publishing: measure locally, reject a mismatched type with the reason,
+    // and show the detected "1080 × 1920 / Aspect ratio: 9:16" verdict.
+    if (resourceType && MEDIA_RULES[resourceType] && !MEDIA_RULES[resourceType].textOnly) {
+      const measured = await probeLocalDimensions(file);
+      const verdict = checkMediaForType(resourceType, {
+        kind: localKind(file),
+        width: measured.width,
+        height: measured.height,
+        mimeType: file.type,
+      });
+      const dims = formatDimensions(measured.width, measured.height);
+      const aspect = formatAspectLabel(measured.width, measured.height);
+      setRatioInfo({
+        ok: verdict.ok,
+        text: [resourceType, dims, aspect].filter(Boolean).join(" · ") || resourceType,
+        detected: verdict.detectedRatio,
+      });
+      if (!verdict.ok) {
+        setError(verdict.reason);
+        setPending(null);
+        return;
+      }
     }
 
     setError("");
@@ -95,6 +169,7 @@ export default function ResourceFileField({
     onFacts?.(null);
     setError("");
     setPending(null);
+    setRatioInfo(null);
 
     /* Clearing the native input lets the same file be chosen again
        afterwards, which a browser will not do while the old value stands. */
@@ -209,6 +284,18 @@ export default function ResourceFileField({
               {copy.retry}
             </button>
           )}
+        </p>
+      )}
+
+      {(showRatio || ratioInfo) && (ratioInfo || facts?.width) && (
+        <p
+          className={ratioInfo && !ratioInfo.ok ? "res-error" : "res-admin-hint"}
+          aria-live="polite"
+        >
+          {ratioInfo?.text ||
+            `${formatDimensions(facts?.width, facts?.height)} · ${formatAspectLabel(facts?.width, facts?.height)}`}
+          {ratioInfo?.ok ? " ✓" : ""}
+          {ratioInfo?.detected && !ratioInfo?.ok ? "" : ""}
         </p>
       )}
     </div>

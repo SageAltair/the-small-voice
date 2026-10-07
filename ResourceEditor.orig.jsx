@@ -483,9 +483,7 @@ export default function ResourceEditor({ resourceId, onSaved, onCancel }) {
                 setFacts(result);
                 if (result?.duration) change("duration", result.duration);
               }}
-              accept={type === "audio" ? "audio/*" : "video/*,.mp4,.webm,.mov,.m4v"}
-              resourceType={type}
-              showRatio={type === "reel" || type === "video"}
+              accept={type === "audio" ? "audio/*" : "video/*"}
             />
 
             <label className="res-field">

@@ -335,6 +335,36 @@ def _mp4_duration(file_path: Path) -> int | None:
 
     return None
 
+def _mp4_dimensions(file_path: Path) -> tuple[int | None, int | None]:
+    """Width and height from the first MP4/MOV ``tkhd`` box.
+
+    The track header stores display dimensions as 16.16 fixed-point. This
+    walks every ``tkhd`` box and returns the first non-zero size, so an audio
+    track header (0x0) never shadows the video track. Best-effort like
+    everything here: ``(None, None)`` when the container is unfamiliar.
+    """
+    try:
+        with open(file_path, "rb") as handle:
+            blob = handle.read(1024 * 1024)
+            if len(blob) < 32 or blob[4:8] != b"ftyp":
+                return (None, None)
+            search_from = 0
+            while True:
+                index = blob.find(b"tkhd", search_from)
+                if index < 0 or index + 96 >= len(blob):
+                    return (None, None)
+                version = blob[index + 4]
+                offset = index + (88 if version == 1 else 76)
+                width = int.from_bytes(blob[offset:offset + 4], "big") >> 16
+                height = int.from_bytes(blob[offset + 4:offset + 8], "big") >> 16
+                if width and height:
+                    return (width, height)
+                search_from = index + 4
+    except Exception:
+        return (None, None)
+    return (None, None)
+
+
 
 def _wav_duration(file_path: Path) -> int | None:
     """Duration from a WAV header - the byte rate is all that is needed."""

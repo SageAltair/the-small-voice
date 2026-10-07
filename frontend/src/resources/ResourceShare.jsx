@@ -9,12 +9,12 @@
  */
 
 import { useState } from "react";
-import { Check, Download, Share2 } from "lucide-react";
+import { Check, Download, Send, Share2 } from "lucide-react";
 
 import { useLanguage } from "../i18n/LanguageContext";
 import { getResourceDownloadUrl } from "../services/api";
 
-export default function ResourceShare({ resource, title, url }) {
+export default function ResourceShare({ resource, title, url, iconOnly = false }) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
 
@@ -73,6 +73,24 @@ export default function ResourceShare({ resource, title, url }) {
 
   const text = copied ? t.resources.shareCopied : label;
 
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        className="feed-action"
+        onClick={share}
+        data-copied={copied || undefined}
+        aria-label={text}
+      >
+        {copied ? (
+          <Check size={18} aria-hidden="true" />
+        ) : (
+          <Send size={18} aria-hidden="true" />
+        )}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -92,13 +110,21 @@ export default function ResourceShare({ resource, title, url }) {
 }
 
 /** A download button that only appears when downloads are permitted. */
-export function ResourceDownload({ resource, className = "res-btn" }) {
+export function ResourceDownload({ resource, className = "res-btn", iconOnly = false }) {
   const { t } = useLanguage();
   const href = getResourceDownloadUrl(resource);
 
   // The API refuses a download the resource did not permit, so the button is
   // not rendered at all rather than offering something that would 403.
   if (!href || !resource?.downloadable) return null;
+
+  if (iconOnly) {
+    return (
+      <a className="feed-action" href={href} download aria-label={t.resources.download}>
+        <Download size={18} aria-hidden="true" />
+      </a>
+    );
+  }
 
   return (
     <a className={className} href={href} download>

@@ -155,7 +155,9 @@ export default function ResourceCard({ resource, compact = false }) {
     <article className={`card res-card res-card--${type}`}>
       <div
         className={`res-card-media res-card-media--${meta.rail}`}
-        style={{ aspectRatio: isQuote || isAudio ? undefined : meta.aspect }}
+        /* `compact` is the homepage teaser: it sizes to a story card (see
+           .home-reel-rail) instead of stretching to the reel's 9/16 ratio. */
+        style={{ aspectRatio: isQuote || isAudio || compact ? undefined : meta.aspect }}
       >
         {isQuote && <QuoteTile resource={resource} />}
 

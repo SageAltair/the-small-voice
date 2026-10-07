@@ -124,6 +124,14 @@ export function AudioProvider({ children }) {
     if (audioRef.current) audioRef.current.playbackRate = Number(rate) || 1;
   }, []);
 
+  /* Feed volume slider. Additive: nothing existing reads volume. */
+  const setVolume = useCallback((value) => {
+    if (audioRef.current) {
+      audioRef.current.volume = Math.max(0, Math.min(1, Number(value)));
+      audioRef.current.muted = Number(value) <= 0;
+    }
+  }, []);
+
   const stop = useCallback(() => {
     const element = audioRef.current;
     if (!element) return;
@@ -147,9 +155,10 @@ export function AudioProvider({ children }) {
       toggle,
       seek,
       setSpeed,
+      setVolume,
       stop,
     }),
-    [track, playing, progress, duration, load, toggle, seek, setSpeed, stop],
+    [track, playing, progress, duration, load, toggle, seek, setSpeed, setVolume, stop],
   );
 
   return (

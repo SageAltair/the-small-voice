@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    Resources - the shared design system.
 
    One stylesheet for the public library and the nine viewers, plus the admin
@@ -805,19 +805,12 @@
 
 /* ---- video ------------------------------------------------------------ */
 
-/* The frame takes its ratio from the file when the server measured it (see
-   the inline `aspect-ratio` the viewers set); 16:9 is only the fallback for
-   files whose dimensions were never probed. `contain` keeps every pixel. */
 .res-video-frame {
   aspect-ratio: 16 / 9;
   background: #0b0d0c;
 }
 
-.res-video-frame video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
+.res-video-frame video { width: 100%; height: 100%; }
 
 /* A reel is portrait even on the detail page; a video keeps its own shape. */
 .res-video-frame--portrait {
@@ -1049,21 +1042,24 @@
 .res-carousel-frame {
   position: relative;
   overflow: hidden;
+  aspect-ratio: 4 / 5;
   background: #0b0d0c;
 }
 
+@media (min-width: 720px) {
+  .res-carousel-frame { aspect-ratio: 4 / 3; }
+}
 
 .res-carousel-track {
   display: flex;
-  height: auto;
+  height: 100%;
   transition: transform 420ms cubic-bezier(.22, .61, .36, 1);
 }
 
 .res-carousel-track img {
   flex: 0 0 100%;
   width: 100%;
-  height: auto;
-  max-height: 78vh;
+  height: 100%;
   object-fit: contain;
 }
 
@@ -1533,423 +1529,6 @@
 .res-share:hover { border-color: var(--accent); color: var(--accent); }
 .res-share[data-copied="true"] { border-color: var(--accent); color: var(--accent); }
 
-/* ==================== borderless resources feed ========================= */
-/* The public list is an editorial feed, not a grid of boxed cards: the
-   boundary exists structurally but is visually invisible. No borders, no
-   card backgrounds, no shadows, no rounded containers, no box-within-box.
-   Media keeps its own boundary; a hairline separates one post from the next.
-   Everything below builds on the site tokens so light/dark follow the rest
-   of the platform. */
-
-.feed {
-  display: grid;
-  gap: 0;
-  width: min(680px, 100%);
-  margin-inline: auto;
-}
-
-.feed-item {
-  padding: clamp(26px, 4vw, 40px) 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-
-.feed-item + .feed-item {
-  border-top: 1px solid var(--line);
-}
-
-.feed-item-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.feed-item-eyebrow {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px;
-  color: var(--accent);
-  font-family: "DM Mono", ui-monospace, monospace;
-  font-size: .68rem;
-  font-weight: 500;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.feed-item-minutes,
-.feed-item-author {
-  color: var(--text-muted);
-  letter-spacing: .04em;
-  text-transform: none;
-}
-
-.feed-item-overflow {
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  color: var(--text-muted);
-}
-
-.feed-item-overflow:hover {
-  background: var(--surface-muted);
-  color: var(--text);
-}
-
-/* Media: full feed width, natural ratio, its own boundary only. Images and
-   video keep every pixel (contain / intrinsic ratio), never cover-cropped. */
-.feed-reel,
-.feed-video,
-.feed-carousel,
-.feed-image {
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #0b0d0c;
-}
-
-.feed-image {
-  background: var(--surface-muted);
-}
-
-.feed-reel {
-  position: relative;
-  width: min(100%, 420px);
-  max-height: 78vh;
-  margin-inline: auto;
-  aspect-ratio: 9 / 16;
-}
-
-.feed-reel video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-}
-
-.feed-reel-bigplay {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: #fff;
-}
-
-.feed-reel-bigplay svg {
-  width: 64px;
-  height: 64px;
-  padding: 16px;
-  border-radius: 50%;
-  background: rgb(0 0 0 / 55%);
-}
-
-.feed-reel-controls {
-  position: absolute;
-  right: 10px;
-  bottom: 18px;
-  display: grid;
-  gap: 8px;
-}
-
-.feed-reel .res-reel-progress {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-}
-
-.feed-video {
-  aspect-ratio: 16 / 9;
-}
-
-.feed-video video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-}
-
-/* Audio: artwork + title row with scrub and volume, no card chrome. */
-.feed-audio {
-  display: flex;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-}
-
-.feed-audio[data-playing] {
-  border-color: var(--accent);
-}
-
-.feed-audio-cover {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--surface-muted);
-  color: var(--text-muted);
-  font-size: 1.4rem;
-}
-
-.feed-audio-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.feed-audio-main {
-  display: grid;
-  flex: 1;
-  gap: 8px;
-  min-width: 0;
-}
-
-.feed-audio-titles {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-}
-
-.feed-audio-titles strong {
-  overflow: hidden;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 1.02rem;
-  font-weight: 500;
-  letter-spacing: -.01em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.feed-audio-titles span {
-  color: var(--text-muted);
-  font-size: .76rem;
-}
-
-.feed-audio-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.feed-audio-seek {
-  flex: 1;
-  min-width: 0;
-}
-
-.feed-audio-time {
-  flex: none;
-  color: var(--text-muted);
-  font-size: .7rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.feed-audio-volume {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  max-width: 200px;
-  color: var(--text-muted);
-}
-
-.feed-audio-volume input {
-  flex: 1;
-  accent-color: var(--accent);
-}
-
-/* Carousel: full-bleed slides at their own ratio, swipeable, icon arrows. */
-.feed-carousel {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 4 / 5;
-}
-
-.feed-carousel-track {
-  display: flex;
-  height: 100%;
-  transition: transform 260ms ease;
-}
-
-.feed-carousel-track img {
-  flex: none;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #0b0d0c;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-.feed-carousel-arrow {
-  position: absolute;
-  top: 50%;
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: rgb(0 0 0 / 55%);
-  color: #fff;
-  font-size: 1.3rem;
-  line-height: 1;
-  transform: translateY(-50%);
-}
-
-.feed-carousel-arrow:hover {
-  background: rgb(0 0 0 / 78%);
-}
-
-.feed-carousel-arrow--prev { left: 10px; }
-.feed-carousel-arrow--next { right: 10px; }
-
-.feed-carousel-dots {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  display: flex;
-  gap: 6px;
-  transform: translateX(-50%);
-}
-
-.feed-carousel-dots button {
-  width: 7px;
-  height: 7px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 55%);
-  cursor: pointer;
-}
-
-.feed-carousel-dots button[aria-current="true"] {
-  width: 20px;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.feed-image img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.feed-doc-cover {
-  display: block;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-
-.feed-doc-cover img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.feed-quote {
-  padding: 6px 0 2px;
-}
-
-.feed-item-body {
-  padding-top: 14px;
-}
-
-.feed-item-title {
-  margin: 0 0 6px;
-  font-size: 1.32rem;
-  line-height: 1.15;
-  text-wrap: balance;
-}
-
-.feed-item-title a:hover {
-  color: var(--accent);
-}
-
-.feed-item-description {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: .88rem;
-}
-
-/* The spec's row: like, comment, share, download, save, overflow. Borderless
-   icon buttons — hover is a soft wash, active is the accent. */
-.feed-actions {
-  display: flex;
-  gap: 2px;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.feed-action {
-  display: inline-grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.feed-action:hover {
-  background: var(--surface-muted);
-  color: var(--text);
-}
-
-.feed-action[data-active] {
-  color: var(--accent);
-}
-
-.feed-action-spacer {
-  flex: 1;
-}
-
-.feed-action-count {
-  color: var(--text-muted);
-  font-size: .72rem;
-}
-
-@media (max-width: 640px) {
-  .feed-item {
-    padding: 22px 0 26px;
-  }
-
-  .feed-reel {
-    width: min(100%, 340px);
-    max-height: 72vh;
-  }
-
-  .feed-audio {
-    padding: 12px;
-  }
-
-  .feed-audio-cover {
-    width: 52px;
-    height: 52px;
-  }
-
-  .feed-item-title {
-    font-size: 1.18rem;
-  }
-}
-
 /* ============================= responsive ================================ */
 
 /*
@@ -2304,3 +1883,4 @@
 :root[data-theme="dark"] .res-badge--new {
   color: var(--accent);
 }
+

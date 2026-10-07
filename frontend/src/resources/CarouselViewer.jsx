@@ -18,6 +18,7 @@ import { getImageUrl } from "../services/api";
 export default function CarouselViewer({ resource }) {
   const { t } = useLanguage();
   const trackRef = useRef(null);
+  const touchX = useRef(null);
 
   const slides = (resource?.slides || []).filter((slide) => slide.image_url);
   const [index, setIndex] = useState(0);
@@ -31,6 +32,21 @@ export default function CarouselViewer({ resource }) {
     },
     [total],
   );
+
+  /* Touch swipe: a horizontal drag of 40px or more turns the page, matching
+     the feed carousel so both feel native on a phone. */
+  function onTouchStart(event) {
+    touchX.current = event.touches?.[0]?.clientX ?? null;
+  }
+
+  function onTouchEnd(event) {
+    if (touchX.current == null) return;
+    const endX = event.changedTouches?.[0]?.clientX ?? touchX.current;
+    const delta = endX - touchX.current;
+    touchX.current = null;
+    if (Math.abs(delta) < 40) return;
+    go(index + (delta < 0 ? 1 : -1));
+  }
 
   function onKeyDown(event) {
     if (event.key === "ArrowRight") {
@@ -75,6 +91,8 @@ export default function CarouselViewer({ resource }) {
           className="res-carousel-track"
           ref={trackRef}
           style={{ transform: `translateX(-${index * 100}%)` }}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
         >
           {slides.map((item, itemIndex) => (
             <img
